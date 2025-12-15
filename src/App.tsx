@@ -398,7 +398,59 @@ const App: React.FC = () => {
         navigator.clipboard.writeText(html);
     }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText]);
 
-    // Clean HTML copy for WordPress/Google Docs (no inline styles, clean structure)
+    // Helper: Generate rating bar HTML with inline styles
+    const generateRatingBarHtml = (category: string, score: number): string => {
+        const percentage = (score / 10) * 100;
+        const barColor = score >= 8 ? '#22c55e' : score >= 6 ? '#eab308' : '#ef4444';
+        return `
+        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <span style="width: 140px; font-size: 14px; color: #374151;">${category}</span>
+            <div style="flex: 1; height: 12px; background-color: #e5e7eb; border-radius: 6px; margin: 0 12px; overflow: hidden;">
+                <div style="width: ${percentage}%; height: 100%; background-color: ${barColor}; border-radius: 6px;"></div>
+            </div>
+            <span style="font-size: 14px; font-weight: 600; color: #374151;">${score}/10</span>
+        </div>`;
+    };
+
+    // Helper: Generate infosheet HTML with inline styles
+    const generateInfosheetHtml = (infosheet: any, uiText: any): string => {
+        const rows = [
+            [uiText.infosheetLicense, infosheet.license],
+            [uiText.infosheetCountry, infosheet.country],
+            [uiText.infosheetCompany, infosheet.company],
+            [uiText.infosheetMinDeposit, infosheet.minDeposit],
+            [uiText.infosheetPayoutSpeed, infosheet.payoutSpeed],
+            [uiText.infosheetCurrencies, Array.isArray(infosheet.supportedCurrencies) ? infosheet.supportedCurrencies.join(', ') : infosheet.supportedCurrencies || 'N/A'],
+            [uiText.infosheetPaymentMethods, Array.isArray(infosheet.paymentMethods) ? infosheet.paymentMethods.join(', ') : infosheet.paymentMethods || 'N/A'],
+            ['KYC', infosheet.kycRequirement || 'Not specified'],
+        ];
+        
+        let tableHtml = `<div style="background-color: #f9fafb; padding: 16px; border-radius: 8px; margin: 16px 0;">
+            <h4 style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">${uiText.platformInformation}</h4>`;
+        
+        if (infosheet.dataSource || infosheet.retrievedAt) {
+            tableHtml += `<p style="font-size: 12px; color: #6b7280; margin-bottom: 12px;">`;
+            if (infosheet.dataSource) tableHtml += `Source: ${infosheet.dataSource}`;
+            if (infosheet.dataSource && infosheet.retrievedAt) tableHtml += ` • `;
+            if (infosheet.retrievedAt) {
+                const date = new Date(infosheet.retrievedAt);
+                tableHtml += `Last retrieved: ${date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`;
+            }
+            tableHtml += `</p>`;
+        }
+        
+        tableHtml += `<table style="width: 100%; font-size: 14px; border-collapse: collapse;">`;
+        rows.forEach(([label, value]) => {
+            tableHtml += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px 0; color: #6b7280; font-weight: 500; width: 140px;">${label}</td><td style="padding: 8px 0; color: #111827;">${value}</td></tr>`;
+        });
+        // Bonus row - highlighted
+        tableHtml += `<tr style="background-color: #fef9c3;"><td style="padding: 8px 0; color: #374151; font-weight: 600;">🎁 Bonus</td><td style="padding: 8px 0; color: #111827; font-weight: 500;">${infosheet.welcomeBonus || 'Not specified'}</td></tr>`;
+        tableHtml += `</table></div>`;
+        
+        return tableHtml;
+    };
+
+    // Clean HTML copy for WordPress/Google Docs (with inline styles)
     const handleCopyCleanHtml = useCallback(() => {
         if (!generatedArticle) return;
 
@@ -417,9 +469,9 @@ const App: React.FC = () => {
         // Comparison table
         if (generatedArticle.comparisonTable.length > 0) {
             html += `<h2>${uiText.platformComparison}</h2>\n`;
-            html += `<table>\n<thead>\n<tr><th>${uiText.tablePlatform}</th><th>${uiText.tableLicense}</th><th>${uiText.tableMinDeposit}</th><th>${uiText.tablePayoutSpeed}</th><th>${uiText.tableRating}</th></tr>\n</thead>\n<tbody>\n`;
+            html += `<table style="width: 100%; border-collapse: collapse; margin: 16px 0;">\n<thead>\n<tr style="background-color: #f3f4f6;"><th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">${uiText.tablePlatform}</th><th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">${uiText.tableLicense}</th><th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">${uiText.tableMinDeposit}</th><th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">${uiText.tablePayoutSpeed}</th><th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">${uiText.tableRating}</th></tr>\n</thead>\n<tbody>\n`;
             generatedArticle.comparisonTable.forEach(row => {
-                html += `<tr><td>${row.platformName}</td><td>${row.license}</td><td>${row.minDeposit}</td><td>${row.payoutSpeed}</td><td>${row.rating}</td></tr>\n`;
+                html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 12px;">${row.platformName}</td><td style="padding: 12px;">${row.license}</td><td style="padding: 12px;">${row.minDeposit}</td><td style="padding: 12px;">${row.payoutSpeed}</td><td style="padding: 12px;">${row.rating}</td></tr>\n`;
             });
             html += `</tbody>\n</table>\n\n`;
         }
@@ -428,13 +480,67 @@ const App: React.FC = () => {
         generatedArticle.platformReviews.forEach(review => {
             html += `<h2>${uiText.platformReviewTitle(review.platformName)}</h2>\n`;
             html += review.overview + '\n\n';
-            html += `<h3>${uiText.pros}</h3>\n<ul>\n${review.pros.map(p => `<li>${p}</li>`).join('\n')}\n</ul>\n\n`;
-            html += `<h3>${uiText.cons}</h3>\n<ul>\n${review.cons.map(c => `<li>${c}</li>`).join('\n')}\n</ul>\n\n`;
-            html += `<h3>${uiText.ourVerdict}</h3>\n` + review.verdict + '\n\n';
+            
+            // Rating bars (if enabled and available)
+            if (config.includeSections.platformRatings && review.ratings && review.ratings.length > 0) {
+                html += `<h3>${uiText.platformRatings}</h3>\n`;
+                html += `<div style="margin: 16px 0;">`;
+                review.ratings.forEach(r => {
+                    html += generateRatingBarHtml(uiText.translateRatingCategory(r.category), r.score);
+                });
+                html += `</div>\n\n`;
+            }
+            
+            // Infosheet (if enabled)
+            if (config.includeSections.platformInfosheet) {
+                html += generateInfosheetHtml(review.infosheet, uiText);
+            }
+            
+            // Pros and Cons (if enabled)
+            if (config.includeSections.prosCons) {
+                html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;">`;
+                html += `<div style="background-color: #f0fdf4; padding: 16px; border-radius: 8px;">`;
+                html += `<h4 style="font-size: 14px; font-weight: 600; color: #166534; margin-bottom: 12px;">✓ ${uiText.pros}</h4>`;
+                html += `<ul style="margin: 0; padding-left: 0; list-style: none;">`;
+                review.pros.forEach(p => {
+                    html += `<li style="margin-bottom: 8px; color: #111827;"><span style="color: #22c55e; margin-right: 8px;">✓</span>${p}</li>`;
+                });
+                html += `</ul></div>`;
+                html += `<div style="background-color: #fef2f2; padding: 16px; border-radius: 8px;">`;
+                html += `<h4 style="font-size: 14px; font-weight: 600; color: #991b1b; margin-bottom: 12px;">✗ ${uiText.cons}</h4>`;
+                html += `<ul style="margin: 0; padding-left: 0; list-style: none;">`;
+                review.cons.forEach(c => {
+                    html += `<li style="margin-bottom: 8px; color: #111827;"><span style="color: #ef4444; margin-right: 8px;">✗</span>${c}</li>`;
+                });
+                html += `</ul></div></div>\n\n`;
+            }
+            
+            // Verdict (if enabled)
+            if (config.includeSections.verdict) {
+                html += `<div style="background-color: #f9fafb; padding: 16px; border-radius: 8px; margin: 16px 0;">`;
+                html += `<h3 style="font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 12px;">${uiText.ourVerdict}</h3>\n`;
+                html += `<div style="color: #111827;">${review.verdict}</div></div>\n\n`;
+            }
+            
             if (review.affiliateUrl) {
-                html += `<p><a href="${review.affiliateUrl}">${uiText.visitPlatformCta(review.platformName)}</a></p>\n\n`;
+                html += `<p style="text-align: center; margin: 24px 0;"><a href="${review.affiliateUrl}" style="display: inline-block; padding: 12px 32px; background-color: #22c55e; color: white; text-decoration: none; font-weight: 600; border-radius: 8px;">${uiText.visitPlatformCta(review.platformName)}</a></p>\n\n`;
             }
         });
+
+        // Scoring Methodology Section (before FAQs)
+        html += `<h2>Our Rating Methodology</h2>\n`;
+        html += `<p>We evaluate each platform across six key categories, with scores from 1-10:</p>\n`;
+        html += `<div style="background-color: #f9fafb; padding: 16px; border-radius: 8px; margin: 16px 0;">`;
+        html += `<table style="width: 100%; font-size: 14px; border-collapse: collapse;">`;
+        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px; font-weight: 600;">Score</td><td style="padding: 8px; font-weight: 600;">Meaning</td><td style="padding: 8px; font-weight: 600;">Criteria</td></tr>`;
+        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">9-10</td><td style="padding: 8px;">Exceptional</td><td style="padding: 8px;">Industry-leading, verified by multiple sources</td></tr>`;
+        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">8</td><td style="padding: 8px;">Excellent</td><td style="padding: 8px;">Top-tier with minor room for improvement</td></tr>`;
+        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">7</td><td style="padding: 8px;">Very Good</td><td style="padding: 8px;">Above average, meets high standards</td></tr>`;
+        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">6</td><td style="padding: 8px;">Good</td><td style="padding: 8px;">Solid, meets expectations</td></tr>`;
+        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">5</td><td style="padding: 8px;">Adequate</td><td style="padding: 8px;">Acceptable but has gaps</td></tr>`;
+        html += `<tr><td style="padding: 8px;">1-4</td><td style="padding: 8px;">Below Average</td><td style="padding: 8px;">Significant issues noted</td></tr>`;
+        html += `</table></div>\n`;
+        html += `<p><strong>Star Rating Aggregation:</strong> The overall star rating (1-5 stars) is calculated by averaging all six category scores: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | Below 4.5 = ⭐</p>\n\n`;
 
         // FAQs
         if (generatedArticle.faqs.length > 0) {
@@ -448,12 +554,13 @@ const App: React.FC = () => {
         if (config.includeResponsibleGamblingDisclaimer) {
             const disclaimerText = config.responsibleGamblingDisclaimerText || 
                 'Gambling involves risk and should be done responsibly. Please only gamble with money you can afford to lose. If you or someone you know has a gambling problem, please seek help from professional organizations. Many jurisdictions have support services available 24/7. You must be of legal gambling age in your jurisdiction to participate in online gambling activities.';
-            html += `<h3>⚠️ Responsible Gambling</h3>\n`;
-            html += `<p>${disclaimerText}</p>\n`;
+            html += `<div style="background-color: #fef3c7; padding: 16px; border-radius: 8px; margin: 16px 0;">`;
+            html += `<h3 style="color: #92400e;">⚠️ Responsible Gambling</h3>\n`;
+            html += `<p style="color: #78350f;">${disclaimerText}</p></div>\n`;
         }
 
         navigator.clipboard.writeText(html);
-    }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText]);
+    }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, config.includeSections]);
 
     const handleDownloadHtml = useCallback(() => {
         if (!generatedArticle) return;
@@ -485,13 +592,67 @@ const App: React.FC = () => {
         generatedArticle.platformReviews.forEach(review => {
             articleContent += `<h2>${uiText.platformReviewTitle(review.platformName)}</h2>\n`;
             articleContent += review.overview + '\n\n';
-            articleContent += `<h3>${uiText.pros}</h3>\n<ul>\n${review.pros.map(p => `<li>${p}</li>`).join('\n')}\n</ul>\n\n`;
-            articleContent += `<h3>${uiText.cons}</h3>\n<ul>\n${review.cons.map(c => `<li>${c}</li>`).join('\n')}\n</ul>\n\n`;
-            articleContent += `<h3>${uiText.ourVerdict}</h3>\n` + review.verdict + '\n\n';
+            
+            // Rating bars (if enabled)
+            if (config.includeSections.platformRatings && review.ratings && review.ratings.length > 0) {
+                articleContent += `<h3>${uiText.platformRatings}</h3>\n`;
+                articleContent += `<div style="margin: 16px 0;">`;
+                review.ratings.forEach(r => {
+                    articleContent += generateRatingBarHtml(uiText.translateRatingCategory(r.category), r.score);
+                });
+                articleContent += `</div>\n\n`;
+            }
+            
+            // Infosheet (if enabled)
+            if (config.includeSections.platformInfosheet) {
+                articleContent += generateInfosheetHtml(review.infosheet, uiText);
+            }
+            
+            // Pros and Cons (if enabled)
+            if (config.includeSections.prosCons) {
+                articleContent += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;">`;
+                articleContent += `<div style="background-color: #f0fdf4; padding: 16px; border-radius: 8px;">`;
+                articleContent += `<h4 style="font-size: 14px; font-weight: 600; color: #166534; margin-bottom: 12px;">✓ ${uiText.pros}</h4>`;
+                articleContent += `<ul style="margin: 0; padding-left: 0; list-style: none;">`;
+                review.pros.forEach(p => {
+                    articleContent += `<li style="margin-bottom: 8px; color: #111827;"><span style="color: #22c55e; margin-right: 8px;">✓</span>${p}</li>`;
+                });
+                articleContent += `</ul></div>`;
+                articleContent += `<div style="background-color: #fef2f2; padding: 16px; border-radius: 8px;">`;
+                articleContent += `<h4 style="font-size: 14px; font-weight: 600; color: #991b1b; margin-bottom: 12px;">✗ ${uiText.cons}</h4>`;
+                articleContent += `<ul style="margin: 0; padding-left: 0; list-style: none;">`;
+                review.cons.forEach(c => {
+                    articleContent += `<li style="margin-bottom: 8px; color: #111827;"><span style="color: #ef4444; margin-right: 8px;">✗</span>${c}</li>`;
+                });
+                articleContent += `</ul></div></div>\n\n`;
+            }
+            
+            // Verdict (if enabled)
+            if (config.includeSections.verdict) {
+                articleContent += `<div style="background-color: #f9fafb; padding: 16px; border-radius: 8px; margin: 16px 0;">`;
+                articleContent += `<h3 style="font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 12px;">${uiText.ourVerdict}</h3>\n`;
+                articleContent += `<div style="color: #111827;">${review.verdict}</div></div>\n\n`;
+            }
+            
             if (review.affiliateUrl) {
-                articleContent += `<p><a href="${review.affiliateUrl}">${uiText.visitPlatformCta(review.platformName)}</a></p>\n\n`;
+                articleContent += `<p style="text-align: center; margin: 24px 0;"><a href="${review.affiliateUrl}" style="display: inline-block; padding: 12px 32px; background-color: #22c55e; color: white; text-decoration: none; font-weight: 600; border-radius: 8px;">${uiText.visitPlatformCta(review.platformName)}</a></p>\n\n`;
             }
         });
+
+        // Scoring Methodology Section (before FAQs)
+        articleContent += `<h2>Our Rating Methodology</h2>\n`;
+        articleContent += `<p>We evaluate each platform across six key categories, with scores from 1-10:</p>\n`;
+        articleContent += `<div style="background-color: #f9fafb; padding: 16px; border-radius: 8px; margin: 16px 0;">`;
+        articleContent += `<table style="width: 100%; font-size: 14px; border-collapse: collapse;">`;
+        articleContent += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px; font-weight: 600;">Score</td><td style="padding: 8px; font-weight: 600;">Meaning</td><td style="padding: 8px; font-weight: 600;">Criteria</td></tr>`;
+        articleContent += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">9-10</td><td style="padding: 8px;">Exceptional</td><td style="padding: 8px;">Industry-leading, verified by multiple sources</td></tr>`;
+        articleContent += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">8</td><td style="padding: 8px;">Excellent</td><td style="padding: 8px;">Top-tier with minor room for improvement</td></tr>`;
+        articleContent += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">7</td><td style="padding: 8px;">Very Good</td><td style="padding: 8px;">Above average, meets high standards</td></tr>`;
+        articleContent += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">6</td><td style="padding: 8px;">Good</td><td style="padding: 8px;">Solid, meets expectations</td></tr>`;
+        articleContent += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">5</td><td style="padding: 8px;">Adequate</td><td style="padding: 8px;">Acceptable but has gaps</td></tr>`;
+        articleContent += `<tr><td style="padding: 8px;">1-4</td><td style="padding: 8px;">Below Average</td><td style="padding: 8px;">Significant issues noted</td></tr>`;
+        articleContent += `</table></div>\n`;
+        articleContent += `<p><strong>Star Rating Aggregation:</strong> The overall star rating (1-5 stars) is calculated by averaging all six category scores: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | Below 4.5 = ⭐</p>\n\n`;
 
         // FAQs
         if (generatedArticle.faqs.length > 0) {
@@ -505,7 +666,9 @@ const App: React.FC = () => {
         if (config.includeResponsibleGamblingDisclaimer) {
             const disclaimerText = config.responsibleGamblingDisclaimerText || 
                 'Gambling involves risk and should be done responsibly. Please only gamble with money you can afford to lose.';
-            articleContent += `<h3>⚠️ Responsible Gambling</h3>\n<p>${disclaimerText}</p>\n`;
+            articleContent += `<div style="background-color: #fef3c7; padding: 16px; border-radius: 8px; margin: 16px 0;">`;
+            articleContent += `<h3 style="color: #92400e;">⚠️ Responsible Gambling</h3>\n`;
+            articleContent += `<p style="color: #78350f;">${disclaimerText}</p></div>\n`;
         }
 
         const fullHtml = `<!DOCTYPE html>
@@ -534,7 +697,7 @@ const App: React.FC = () => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(href);
-    }, [generatedArticle, config.language]);
+    }, [generatedArticle, config.language, config.includeSections, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, generateRatingBarHtml, generateInfosheetHtml]);
 
     const isLoading = workflowPhase !== 'idle' && workflowPhase !== 'completed' && workflowPhase !== 'error';
     const uiText = getUiText(config.language);
