@@ -1,0 +1,941 @@
+import React, { useState } from 'react';
+import { 
+    ArticleConfig, 
+    Language, 
+    PlatformInput, 
+    ReviewTemplate, 
+    IncludeSections, 
+    SectionWordCounts,
+    WritingModel,
+    SeoMode,
+    ToneOfVoice,
+    TargetKeyword,
+    InternalLink
+} from '../types';
+import { generateResponsibleGamblingDisclaimer } from '../services/platformResearchService';
+
+// Icons
+const PlusIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+);
+
+const TrashIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+);
+
+const SearchIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+);
+
+const ChevronDownIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+);
+
+interface SerpCompetitor {
+    rank: number;
+    domain: string;
+    url: string;
+    title: string;
+    metaDesc: string;
+    headings: string[];
+}
+
+interface InputFormProps {
+    config: ArticleConfig;
+    setConfig: (config: ArticleConfig) => void;
+    templates: ReviewTemplate[];
+    onSaveTemplate: (name: string) => void;
+    onLoadTemplate: (template: ReviewTemplate) => void;
+    onDeleteTemplate: (id: string) => void;
+    onSubmit: () => void;
+    isLoading: boolean;
+    // SERP Analysis props
+    serpCompetitors?: SerpCompetitor[];
+    serpAnalysisLoading?: boolean;
+    onAnalyzeSerpCompetitors?: (keyword: string, count: number) => void;
+}
+
+export const InputForm: React.FC<InputFormProps> = ({ 
+    config, 
+    setConfig, 
+    templates,
+    onSaveTemplate,
+    onLoadTemplate,
+    onDeleteTemplate,
+    onSubmit, 
+    isLoading,
+    serpCompetitors = [],
+    serpAnalysisLoading = false,
+    onAnalyzeSerpCompetitors
+}) => {
+    const [newPlatformName, setNewPlatformName] = useState('');
+    const [settingsExpanded, setSettingsExpanded] = useState(false);
+    const [newTemplateName, setNewTemplateName] = useState('');
+    const [showSaveTemplateInput, setShowSaveTemplateInput] = useState(false);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+    const [newKeyword, setNewKeyword] = useState('');
+    const [seoSettingsExpanded, setSeoSettingsExpanded] = useState(false);
+    const [newManualKeyword, setNewManualKeyword] = useState('');
+    const [newManualKeywordCount, setNewManualKeywordCount] = useState(3);
+    const [newLinkAnchor, setNewLinkAnchor] = useState('');
+    const [newLinkUrl, setNewLinkUrl] = useState('');
+    const [advancedExpanded, setAdvancedExpanded] = useState(false);
+    const [serpKeywordInput, setSerpKeywordInput] = useState('');
+    const [serpResultCount, setSerpResultCount] = useState(5);
+    const [serpExpanded, setSerpExpanded] = useState(true);
+    const [keywordsRawInput, setKeywordsRawInput] = useState(() => 
+        config.targetKeywords?.map(k => k.keyword).join('\n') || ''
+    );
+    const [disclaimerLoading, setDisclaimerLoading] = useState(false);
+
+    const addPlatform = () => {
+        if (newPlatformName.trim()) {
+            const newPlatform: PlatformInput = { name: newPlatformName.trim() };
+            setConfig({ ...config, platforms: [...config.platforms, newPlatform] });
+            setNewPlatformName('');
+        }
+    };
+
+    const removePlatform = (index: number) => {
+        const updated = config.platforms.filter((_, i) => i !== index);
+        setConfig({ ...config, platforms: updated });
+    };
+
+    const updatePlatformAffiliateUrl = (index: number, url: string) => {
+        const updated = [...config.platforms];
+        updated[index] = { ...updated[index], affiliateUrl: url };
+        setConfig({ ...config, platforms: updated });
+    };
+
+    const updateSectionWordCount = (key: keyof SectionWordCounts, value: number) => {
+        setConfig({
+            ...config,
+            sectionWordCounts: { ...config.sectionWordCounts, [key]: value }
+        });
+    };
+
+    const updateIncludeSection = (key: keyof IncludeSections, value: boolean) => {
+        setConfig({
+            ...config,
+            includeSections: { ...config.includeSections, [key]: value }
+        });
+    };
+
+    const addKeyword = () => {
+        if (newKeyword.trim()) {
+            const keyword: TargetKeyword = { 
+                keyword: newKeyword.trim(), 
+                isPrimary: (config.targetKeywords?.length || 0) === 0 
+            };
+            setConfig({ 
+                ...config, 
+                targetKeywords: [...(config.targetKeywords || []), keyword] 
+            });
+            setNewKeyword('');
+        }
+    };
+
+    const removeKeyword = (index: number) => {
+        const updated = (config.targetKeywords || []).filter((_, i) => i !== index);
+        setConfig({ ...config, targetKeywords: updated });
+    };
+
+    const togglePrimaryKeyword = (index: number) => {
+        const updated = (config.targetKeywords || []).map((kw, i) => ({
+            ...kw,
+            isPrimary: i === index
+        }));
+        setConfig({ ...config, targetKeywords: updated });
+    };
+
+    const addManualSeoKeyword = () => {
+        if (newManualKeyword.trim()) {
+            const current = config.manualSeoSettings?.keywords || [];
+            setConfig({
+                ...config,
+                manualSeoSettings: {
+                    keywords: [...current, { keyword: newManualKeyword.trim(), count: newManualKeywordCount }]
+                }
+            });
+            setNewManualKeyword('');
+            setNewManualKeywordCount(3);
+        }
+    };
+
+    const removeManualSeoKeyword = (index: number) => {
+        const current = config.manualSeoSettings?.keywords || [];
+        setConfig({
+            ...config,
+            manualSeoSettings: {
+                keywords: current.filter((_, i) => i !== index)
+            }
+        });
+    };
+
+    const addInternalLink = () => {
+        if (newLinkAnchor.trim() && newLinkUrl.trim()) {
+            const link: InternalLink = { 
+                anchorText: newLinkAnchor.trim(), 
+                url: newLinkUrl.trim() 
+            };
+            setConfig({ 
+                ...config, 
+                internalLinks: [...(config.internalLinks || []), link] 
+            });
+            setNewLinkAnchor('');
+            setNewLinkUrl('');
+        }
+    };
+
+    const removeInternalLink = (index: number) => {
+        const updated = (config.internalLinks || []).filter((_, i) => i !== index);
+        setConfig({ ...config, internalLinks: updated });
+    };
+
+    const handleSaveTemplate = () => {
+        if (newTemplateName.trim()) {
+            onSaveTemplate(newTemplateName.trim());
+            setNewTemplateName('');
+            setShowSaveTemplateInput(false);
+        }
+    };
+
+    const Toggle = ({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) => (
+        <label className="flex items-center cursor-pointer">
+            <div className="relative">
+                <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={checked}
+                    onChange={(e) => onChange(e.target.checked)}
+                />
+                <div className={`block w-12 h-7 rounded-full transition ${checked ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                <div className={`dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform shadow-sm ${checked ? 'translate-x-5' : 'translate-x-0'}`}></div>
+            </div>
+            <span className="ml-3 text-sm text-gray-700">{label}</span>
+        </label>
+    );
+
+    return (
+        <div className="space-y-6">
+            {/* Section 1: Article Introduction & Narrative */}
+            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="mr-2">📝</span> Article Introduction & Narrative
+                </h2>
+                
+                <div className="space-y-4">
+                    {/* Narrative + Keywords side by side */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="lg:col-span-2">
+                            <label htmlFor="introNarrative" className="block text-sm font-medium text-gray-700 mb-2">
+                                Describe the angle/narrative for this review article
+                            </label>
+                            <textarea
+                                id="introNarrative"
+                                rows={4}
+                                className="w-full h-24 bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-gray-400"
+                                placeholder="e.g., Best online casinos for Thai players in 2025, focusing on fast withdrawals and Thai Baht support..."
+                                value={config.introNarrative}
+                                onChange={(e) => setConfig({ ...config, introNarrative: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="targetKeywords" className="block text-sm font-medium text-gray-700 mb-2">
+                                🔑 Target Keywords <span className="text-gray-400 font-normal">(optional)</span>
+                            </label>
+                            <textarea
+                                id="targetKeywords"
+                                rows={4}
+                                className="w-full h-24 bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-gray-400 text-sm"
+                                placeholder="One keyword per line&#10;First line = primary keyword"
+                                value={keywordsRawInput}
+                                onChange={(e) => {
+                                    const rawValue = e.target.value;
+                                    setKeywordsRawInput(rawValue);
+                                    const lines = rawValue.split('\n');
+                                    const keywords = lines
+                                        .filter(line => line.trim())
+                                        .map((line, i) => ({
+                                            keyword: line.trim(),
+                                            isPrimary: i === 0
+                                        }));
+                                    setConfig({ ...config, targetKeywords: keywords });
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                            <select 
+                                id="language" 
+                                value={config.language} 
+                                onChange={(e) => setConfig({ ...config, language: e.target.value as Language })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value={Language.ENGLISH}>English</option>
+                                <option value={Language.THAI}>Thai</option>
+                                <option value={Language.VIETNAMESE}>Vietnamese</option>
+                                <option value={Language.JAPANESE}>Japanese</option>
+                                <option value={Language.KOREAN}>Korean</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="introWordCount" className="block text-sm font-medium text-gray-700 mb-2">Intro Words</label>
+                            <input 
+                                type="number" 
+                                id="introWordCount" 
+                                value={config.introWordCount} 
+                                min="50" 
+                                step="50" 
+                                onChange={(e) => setConfig({ ...config, introWordCount: parseInt(e.target.value, 10) || 200 })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500" 
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="template" className="block text-sm font-medium text-gray-700 mb-2">Template</label>
+                            <div className="flex gap-2">
+                                <select 
+                                    id="template"
+                                    className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                    disabled={templates.length === 0}
+                                    value={selectedTemplateId}
+                                    onChange={(e) => {
+                                        const nextId = e.target.value;
+                                        setSelectedTemplateId(nextId);
+                                        const template = templates.find(t => t.id === nextId);
+                                        if (template) onLoadTemplate(template);
+                                    }}
+                                >
+                                    <option value="" disabled>
+                                        {templates.length === 0 ? 'No saved templates' : 'Load template...'}
+                                    </option>
+                                    {templates.map(t => (
+                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                    ))}
+                                </select>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSaveTemplateInput(!showSaveTemplateInput)}
+                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={!selectedTemplateId}
+                                    onClick={() => {
+                                        if (!selectedTemplateId) return;
+                                        onDeleteTemplate(selectedTemplateId);
+                                        setSelectedTemplateId('');
+                                    }}
+                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">
+                                Templates save and restore your settings (language, word counts, included sections) in this browser.
+                            </p>
+                            {showSaveTemplateInput && (
+                                <div className="mt-2 flex gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Template name..."
+                                        value={newTemplateName}
+                                        onChange={(e) => setNewTemplateName(e.target.value)}
+                                        className="flex-1 bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveTemplate}
+                                        className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition"
+                                    >
+                                        Save
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            {/* Section 2: Writing Settings */}
+            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="mr-2">✍️</span> Writing Settings
+                </h2>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label htmlFor="writingModel" className="block text-sm font-medium text-gray-700 mb-2">Writing Model</label>
+                        <select 
+                            id="writingModel" 
+                            value={config.writingModel} 
+                            onChange={(e) => setConfig({ ...config, writingModel: e.target.value as WritingModel })}
+                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value={WritingModel.GPT_5_2}>GPT 5.2</option>
+                            <option value={WritingModel.GEMINI_2_5_PRO}>Gemini 2.5 Pro</option>
+                            <option value={WritingModel.CLAUDE_SONNET_4_5}>Claude Sonnet 4.5</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="toneOfVoice" className="block text-sm font-medium text-gray-700 mb-2">Tone of Voice</label>
+                        <select 
+                            id="toneOfVoice" 
+                            value={config.toneOfVoice} 
+                            onChange={(e) => setConfig({ ...config, toneOfVoice: e.target.value as ToneOfVoice })}
+                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value={ToneOfVoice.PROFESSIONAL}>Professional</option>
+                            <option value={ToneOfVoice.FRIENDLY}>Friendly</option>
+                            <option value={ToneOfVoice.FORMAL}>Formal</option>
+                            <option value={ToneOfVoice.CASUAL}>Casual</option>
+                            <option value={ToneOfVoice.CUSTOM}>Custom...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="seoMode" className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                            SEO Optimization
+                            <span 
+                                className="inline-flex items-center justify-center w-4 h-4 text-xs bg-gray-200 text-gray-600 rounded-full cursor-help"
+                                title="Default: Natural keyword placement based on target keywords.&#10;&#10;Manual: You specify exact keyword counts (e.g., use 'casino' exactly 5 times).&#10;&#10;AI-Powered: AI analyzes top competitors and optimizes keyword density automatically."
+                            >?</span>
+                        </label>
+                        <select 
+                            id="seoMode" 
+                            value={config.seoMode} 
+                            onChange={(e) => setConfig({ ...config, seoMode: e.target.value as SeoMode })}
+                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value={SeoMode.DEFAULT}>Default</option>
+                            <option value={SeoMode.MANUAL}>Manual</option>
+                            <option value={SeoMode.AI_POWERED}>AI-Powered</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="targetSectionCount" className="block text-sm font-medium text-gray-700 mb-2">
+                            Article Sections
+                        </label>
+                        <select 
+                            id="targetSectionCount" 
+                            value={config.targetSectionCount || 5} 
+                            onChange={(e) => setConfig({ ...config, targetSectionCount: parseInt(e.target.value, 10) })}
+                            aria-label="Number of article sections"
+                            title="Number of article sections"
+                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value={5}>5 sections (standard)</option>
+                            <option value={6}>6 sections (+1 from competitors)</option>
+                            <option value={7}>7 sections (+2 from competitors)</option>
+                            <option value={8}>8 sections (+3 from competitors)</option>
+                            <option value={9}>9 sections (+4 from competitors)</option>
+                            <option value={10}>10 sections (+5 from competitors)</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">Extra sections are suggested from SERP competitor analysis</p>
+                    </div>
+                </div>
+
+                {config.toneOfVoice === ToneOfVoice.CUSTOM && (
+                    <div className="mt-4">
+                        <label htmlFor="customTone" className="block text-sm font-medium text-gray-700 mb-2">Custom Tone Description</label>
+                        <input 
+                            type="text" 
+                            id="customTone" 
+                            placeholder="e.g., Enthusiastic but informative, with a touch of humor..."
+                            value={config.customTone || ''} 
+                            onChange={(e) => setConfig({ ...config, customTone: e.target.value })}
+                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                )}
+
+                {config.seoMode === SeoMode.MANUAL && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">Manual SEO Settings</h4>
+                        <div className="flex gap-2 mb-3">
+                            <input
+                                type="text"
+                                placeholder="Keyword..."
+                                value={newManualKeyword}
+                                onChange={(e) => setNewManualKeyword(e.target.value)}
+                                className="flex-1 bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                                type="number"
+                                placeholder="Count"
+                                value={newManualKeywordCount}
+                                onChange={(e) => setNewManualKeywordCount(parseInt(e.target.value) || 1)}
+                                min="1"
+                                max="20"
+                                className="w-20 bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={addManualSeoKeyword}
+                                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition"
+                            >
+                                Add
+                            </button>
+                        </div>
+                        {(config.manualSeoSettings?.keywords?.length || 0) > 0 && (
+                            <div className="space-y-2">
+                                {config.manualSeoSettings?.keywords.map((kw, index) => (
+                                    <div key={index} className="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
+                                        <span className="text-sm text-gray-700">
+                                            <strong>{kw.keyword}</strong> × {kw.count} times
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeManualSeoKeyword(index)}
+                                            className="text-red-500 hover:text-red-700 text-sm"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">Specify exactly how many times each keyword should appear in the article.</p>
+                    </div>
+                )}
+
+                {/* Custom Instructions */}
+                <div className="mt-4">
+                    <label htmlFor="customInstructions" className="block text-sm font-medium text-gray-700 mb-2">
+                        Custom Instructions <span className="text-gray-400 font-normal">(optional)</span>
+                    </label>
+                    <textarea
+                        id="customInstructions"
+                        rows={3}
+                        placeholder="e.g., Avoid sounding like AI direct translation. Follow local gambling advertising regulations. Use specific terminology..."
+                        value={config.customInstructions || ''}
+                        onChange={(e) => setConfig({ ...config, customInstructions: e.target.value })}
+                        className="w-full bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Add any specific instructions for the writing model to follow.</p>
+                </div>
+            </div>
+
+            {/* Section 4: Internal Linking */}
+            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="mr-2">🔗</span> Internal Linking
+                </h2>
+                
+                <div className="space-y-4">
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Anchor text..."
+                            value={newLinkAnchor}
+                            onChange={(e) => setNewLinkAnchor(e.target.value)}
+                            className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                            type="text"
+                            placeholder="URL..."
+                            value={newLinkUrl}
+                            onChange={(e) => setNewLinkUrl(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && addInternalLink()}
+                            className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                            type="button"
+                            onClick={addInternalLink}
+                            aria-label="Add internal link"
+                            title="Add internal link"
+                            className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium transition flex items-center"
+                        >
+                            <PlusIcon />
+                        </button>
+                    </div>
+
+                    {(config.internalLinks?.length || 0) > 0 && (
+                        <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
+                            {config.internalLinks?.map((link, index) => (
+                                <div key={index} className="flex items-center justify-between p-3">
+                                    <div className="flex-1">
+                                        <span className="font-medium text-blue-600">{link.anchorText}</span>
+                                        <span className="mx-2 text-gray-400">→</span>
+                                        <span className="text-gray-600 text-sm truncate">{link.url}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeInternalLink(index)}
+                                        aria-label="Remove link"
+                                        title="Remove link"
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded-md transition"
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <p className="text-xs text-gray-500">These links will be automatically inserted into the article where the anchor text appears naturally.</p>
+                </div>
+            </div>
+
+            {/* Section 5: Platforms to Review (with Review Settings) */}
+            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="mr-2">🎰</span> Platforms to Review
+                </h2>
+
+                <div className="space-y-4">
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Add platform name..."
+                            value={newPlatformName}
+                            onChange={(e) => setNewPlatformName(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && addPlatform()}
+                            className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                            type="button"
+                            onClick={addPlatform}
+                            aria-label="Add platform"
+                            title="Add platform"
+                            className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium transition flex items-center"
+                        >
+                            <PlusIcon />
+                        </button>
+                    </div>
+
+                    {config.platforms.length > 0 && (
+                        <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
+                            {config.platforms.map((platform, index) => (
+                                <div key={index} className="flex items-center gap-3 p-3">
+                                    <span className="text-sm font-medium text-gray-500 w-6">{index + 1}.</span>
+                                    <span className="font-medium text-gray-900 min-w-[120px]">{platform.name}</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Affiliate URL (optional)"
+                                        value={platform.affiliateUrl || ''}
+                                        onChange={(e) => updatePlatformAffiliateUrl(index, e.target.value)}
+                                        className="flex-1 bg-gray-50 border border-gray-200 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => removePlatform(index)}
+                                        aria-label={`Remove ${platform.name}`}
+                                        title={`Remove ${platform.name}`}
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded-md transition"
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {config.platforms.length === 0 && (
+                        <p className="text-sm text-gray-500 italic">No platforms added yet. Add 3-10 platforms to review.</p>
+                    )}
+
+                    <p className="text-xs text-blue-600 flex items-center">
+                        💡 Tip: Add 3-10 platforms. Research runs in parallel for faster results.
+                    </p>
+                </div>
+
+                {/* Review Settings (collapsible within same card) */}
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                    <button
+                        type="button"
+                        onClick={() => setSettingsExpanded(!settingsExpanded)}
+                        className="w-full flex items-center justify-between text-left"
+                    >
+                        <h3 className="text-sm font-semibold text-gray-700 flex items-center">
+                            ⚙️ Review Settings
+                        </h3>
+                        <div className={`transition-transform duration-200 ${settingsExpanded ? 'rotate-180' : ''}`}>
+                            <ChevronDownIcon />
+                        </div>
+                    </button>
+
+                    {settingsExpanded && (
+                        <div className="mt-4 space-y-4">
+                            <div>
+                                <h4 className="text-xs font-medium text-gray-600 mb-2">Word counts per section:</h4>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-xs text-gray-500 mb-1">Overview</label>
+                                        <input
+                                            type="number"
+                                            value={config.sectionWordCounts.overview}
+                                            min="50"
+                                            step="25"
+                                            aria-label="Overview word count"
+                                            onChange={(e) => updateSectionWordCount('overview', parseInt(e.target.value, 10) || 150)}
+                                            className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-500 mb-1">Verdict</label>
+                                        <input
+                                            type="number"
+                                            value={config.sectionWordCounts.verdict}
+                                            min="50"
+                                            step="25"
+                                            aria-label="Verdict word count"
+                                            onChange={(e) => updateSectionWordCount('verdict', parseInt(e.target.value, 10) || 100)}
+                                            className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-gray-500 mb-1">Pros/Cons</label>
+                                        <input
+                                            type="number"
+                                            value={config.sectionWordCounts.prosConsItems}
+                                            min="3"
+                                            max="10"
+                                            aria-label="Pros and cons items"
+                                            onChange={(e) => updateSectionWordCount('prosConsItems', parseInt(e.target.value, 10) || 5)}
+                                            className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-xs font-medium text-gray-600 mb-2">Include in each review:</h4>
+                                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                    <Toggle 
+                                        checked={config.includeSections.platformInfosheet} 
+                                        onChange={(v) => updateIncludeSection('platformInfosheet', v)} 
+                                        label="Infosheet" 
+                                    />
+                                    <Toggle 
+                                        checked={config.includeSections.prosCons} 
+                                        onChange={(v) => updateIncludeSection('prosCons', v)} 
+                                        label="Pros/Cons" 
+                                    />
+                                    <Toggle 
+                                        checked={config.includeSections.verdict} 
+                                        onChange={(v) => updateIncludeSection('verdict', v)} 
+                                        label="Verdict" 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Article Structure Settings */}
+            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="mr-2">📑</span> Article Structure
+                </h2>
+                <div className="space-y-4">
+                    <div className="flex flex-wrap gap-x-6 gap-y-3">
+                        <Toggle 
+                            checked={config.includeSections.comparisonTable} 
+                            onChange={(v) => updateIncludeSection('comparisonTable', v)} 
+                            label="Comparison Table" 
+                        />
+                        <Toggle 
+                            checked={config.includeSections.faqs} 
+                            onChange={(v) => updateIncludeSection('faqs', v)} 
+                            label="FAQs Section" 
+                        />
+                        <Toggle 
+                            checked={config.includeResponsibleGamblingDisclaimer || false} 
+                            onChange={(v) => setConfig({ ...config, includeResponsibleGamblingDisclaimer: v })} 
+                            label="Responsible Gambling Disclaimer" 
+                        />
+                    </div>
+                    <p className="text-xs text-gray-500">These sections appear alongside the main platform reviews in the final article.</p>
+                    
+                    {/* Responsible Gambling Disclaimer Customization */}
+                    {config.includeResponsibleGamblingDisclaimer && (
+                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Disclaimer Text
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        setDisclaimerLoading(true);
+                                        try {
+                                            const text = await generateResponsibleGamblingDisclaimer(config.language);
+                                            setConfig({ ...config, responsibleGamblingDisclaimerText: text });
+                                        } catch (e) {
+                                            console.error('Failed to generate disclaimer:', e);
+                                        }
+                                        setDisclaimerLoading(false);
+                                    }}
+                                    disabled={disclaimerLoading}
+                                    className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-md font-medium transition flex items-center gap-1"
+                                >
+                                    {disclaimerLoading ? (
+                                        <>
+                                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                            </svg>
+                                            Generating...
+                                        </>
+                                    ) : (
+                                        <>✨ Auto-generate for {config.language}</>
+                                    )}
+                                </button>
+                            </div>
+                            <textarea
+                                rows={3}
+                                placeholder="Enter custom disclaimer text or click 'Auto-generate' to create one based on the selected language/market..."
+                                value={config.responsibleGamblingDisclaimerText || ''}
+                                onChange={(e) => setConfig({ ...config, responsibleGamblingDisclaimerText: e.target.value })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Leave empty to use default disclaimer, or customize/auto-generate for your market.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* SERP Competitor Analysis Section */}
+            <div className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                <button
+                    type="button"
+                    onClick={() => setSerpExpanded(!serpExpanded)}
+                    className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
+                >
+                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <span className="mr-2">🔍</span> SERP Competitor Analysis
+                        {serpCompetitors.length > 0 && (
+                            <span className="ml-2 text-sm font-normal text-gray-500">
+                                ({serpCompetitors.length} competitors analyzed)
+                            </span>
+                        )}
+                    </h2>
+                    <ChevronDownIcon />
+                </button>
+                
+                {serpExpanded && (
+                    <div className="p-4 pt-0 border-t border-gray-200">
+                        <p className="text-sm text-gray-600 mb-3">
+                            Analyze top 3 ranking competitors to learn from their content structure.
+                        </p>
+                        
+                        <div className="flex gap-3 mb-4">
+                            <input
+                                type="text"
+                                placeholder="Enter keyword to analyze"
+                                value={serpKeywordInput || config.targetKeywords?.find(k => k.isPrimary)?.keyword || ''}
+                                onChange={(e) => setSerpKeywordInput(e.target.value)}
+                                className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const keyword = serpKeywordInput || config.targetKeywords?.find(k => k.isPrimary)?.keyword || '';
+                                    if (keyword.trim()) {
+                                        onAnalyzeSerpCompetitors?.(keyword, 3);
+                                    }
+                                }}
+                                disabled={serpAnalysisLoading || !(serpKeywordInput || config.targetKeywords?.find(k => k.isPrimary)?.keyword)}
+                                className="px-4 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-md font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {serpAnalysisLoading ? 'Analyzing...' : 'Analyze Top 3'}
+                            </button>
+                        </div>
+
+                        {/* Competitor Results Table */}
+                        {serpCompetitors.length > 0 && (
+                            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="bg-gray-100">
+                                            {serpCompetitors.map((c) => (
+                                                <th key={c.rank} className="border-r border-gray-200 p-3 text-left font-semibold min-w-[200px]">
+                                                    <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                                        {c.domain}
+                                                    </a>
+                                                    <span className="ml-1 text-gray-400 font-normal">(#{c.rank})</span>
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr className="border-t border-gray-200">
+                                            {serpCompetitors.map((c) => (
+                                                <td key={c.rank} className="border-r border-gray-200 p-3 align-top font-medium text-gray-900">
+                                                    {c.title}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        <tr className="border-t border-gray-200 bg-gray-50">
+                                            {serpCompetitors.map((c) => (
+                                                <td key={c.rank} className="border-r border-gray-200 p-3 align-top text-gray-500 text-xs">
+                                                    {c.metaDesc}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                        <tr className="border-t border-gray-200">
+                                            {serpCompetitors.map((c) => (
+                                                <td key={c.rank} className="border-r border-gray-200 p-3 align-top">
+                                                    <p className="text-xs text-gray-500 mb-1 font-medium">H2 Sections:</p>
+                                                    <ul className="space-y-0.5">
+                                                        {c.headings.map((h, j) => (
+                                                            <li key={j} className="text-xs text-gray-700">• {h}</li>
+                                                        ))}
+                                                    </ul>
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {serpCompetitors.length === 0 && !serpAnalysisLoading && (
+                            <p className="text-sm text-gray-400 italic">
+                                
+                            </p>
+                        )}
+
+                        {serpAnalysisLoading && (
+                            <div className="flex items-center justify-center p-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                                <span className="ml-3 text-gray-600">Analyzing competitors...</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Submit Button */}
+            <div className="text-center">
+                <button 
+                    onClick={onSubmit} 
+                    disabled={isLoading || config.platforms.length === 0}
+                    className="inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white font-bold rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
+                >
+                    <SearchIcon />
+                    <span className="ml-2">{isLoading ? 'Researching...' : 'Research & Generate Article'}</span>
+                </button>
+                {config.platforms.length === 0 && (
+                    <p className="mt-2 text-sm text-red-500">Please add at least one platform to review.</p>
+                )}
+            </div>
+        </div>
+    );
+};

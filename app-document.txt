@@ -1,0 +1,160 @@
+# Deep Research Article App - Technical Architecture Document
+
+## 1. Purpose
+
+The Deep Research Article App is a content generation tool designed to transform a user's free-form ideas or existing research into a well-structured, SEO-optimized, and publishable article. It leverages the Google Gemini API for its core AI capabilities, including real-time web research, content summarization, bilingual text generation (English and Thai), and image creation. The primary goal is to streamline the content creation pipeline, from initial concept to a polished draft ready for publication.
+
+## 2. Key Features
+
+- **Flexible Input:** Accepts two primary inputs:
+    1.  **Free-form Context:** A user can paste raw notes, ideas, or links to kickstart the research process.
+    2.  **Existing Research:** A user can paste a pre-written summary or article to be redrafted and optimized.
+- **Automated & Intelligent Research:**
+    -   Generates a focused, data-driven research question from broad user input.
+    -   **Contextual Lookback Analysis:** Intelligently analyzes the user's query to determine the optimal time window for fetching sources, overriding the user's default setting when historical context is needed.
+    -   Uses Google Search grounding to fetch recent, relevant sources based on the question and the determined lookback period.
+- **Insight Synthesis Engine:**
+    -   **Shift from Aggregation to Synthesis:** Before drafting, the app performs a strategic analysis on the research summary to extract a unique layer of insight.
+    -   It identifies four key pillars: the **Consensus** view, the primary point of **Contention**, the key **New Development**, and an actionable **Investor Takeaway**.
+    -   This synthesized analysis serves as the core narrative framework for the final article, ensuring a more original and insightful output.
+- **AI-Powered Content Generation:**
+    -   Summarizes the findings from web sources into a concise brief.
+    -   Drafts a full article based on the synthesized insights and the research summary, complete with a title, meta description, and URL slug.
+    -   Supports generation in both English and Thai, with specific optimizations for each language (e.g., Thai slug transliteration).
+- **SEO & Content Enrichment:**
+    -   **Internal Link Suggestions:** For a selected target site, automatically suggests relevant internal articles to link to, improving on-page SEO (currently optimized for Thai).
+    -   **Seamless Link Integration:** Allows the user to select suggested links and have the AI seamlessly integrate them into the article text with natural anchor text.
+- **Promotional Content Generation:**
+    -   Optionally generates and appends a contextually relevant promotional section to the article by researching a provided project URL.
+    -   The AI is instructed to include specific, SEO-critical internal links within the promotional copy to drive traffic to key money pages.
+- **Visual Asset Creation & Optimization:**
+    -   **Image Generation:** Automatically creates a prompt based on the article content and generates a 16:9 cover image, as well as optional images for each section.
+    -   **Image Editing:** Allows a user to upload their own image and use a text prompt to perform AI-powered edits.
+    -   **Image Compression:** All generated and uploaded images are automatically compressed to an efficient JPEG format under 100 KB to ensure fast page load times.
+    -   **Infographic Data Generation:** Identifies key statistics from the article and structures them into data points suitable for a visual infographic.
+- **Workflow Automation & Configuration:**
+    -   Users can configure output language, primary/secondary SEO keywords, and a default source lookback period (value and unit).
+    -   Toggles allow for automatic image generation, infographic creation, and direct publishing to WordPress.
+- **WordPress Integration:**
+    -   Provides a robust publishing workflow that uploads all generated images (cover and section images) to the WordPress media library.
+    -   Publishes the final article with live image URLs as a draft to a selected WordPress site, with the correct author, categories, and tags.
+
+## 3. Application Workflow & Architecture
+
+The application is a single-page React application with a client-side architecture. All AI and external service interactions are managed through service modules that call the respective APIs.
+
+### Core Components:
+- **`src/App.tsx`:** The main component that manages the application's state, orchestrates the workflow, and renders the UI.
+- **`src/services/geminiService.ts`:** A module encapsulating all interactions with the Google Gemini API. It handles question generation, research summarization, article drafting, and image manipulation.
+- **`src/services/wordpressService.ts`:** A service that handles all authenticated API interactions with a target WordPress site, including fetching users/categories and publishing content/media.
+- **`src/utils/imageCompression.tsx`:** A utility module for client-side image optimization, ensuring all images are compressed below a target file size before being displayed or uploaded.
+- **`components/*`:** Reusable UI components for the input form, step-by-step result cards, and loaders.
+- **`src/constants.ts`:** Stores static data, primarily the detailed prompts used for different AI tasks.
+
+### Workflow Steps (with Inputs/Outputs):
+
+**Step 0: User Input & Configuration**
+- **Input:** User provides text in an input form and sets configuration options (language, keywords, etc.).
+- **Output:** The `AppConfig` state object is populated.
+
+---
+
+**Workflow A: From Idea**
+1.  **Generate Research Question (`handleGenerateQuestion`)**
+    -   **Input:** `userInput` (string).
+    -   **Action:** Calls `geminiService.generateResearchQuestion`.
+    -   **AI Model:** `gemini-2.5-flash`.
+    -   **Output:** `researchQuestion` (string).
+
+2.  **Fetch Research Summary (`handleFetchSummary`)**
+    -   **a. Analyze Lookback Period:**
+        -   **Input:** `userInput`, `researchQuestion`, `AppConfig` (for default lookback).
+        -   **Action:** Calls `geminiService.analyzeLookbackPeriod`.
+        -   **Output:** `effectiveLookback` object containing the optimal number of days and a reason.
+    -   **b. Fetch & Summarize:**
+        -   **Input:** `researchQuestion` (string), `effectiveLookback.days` (number).
+        -   **Action:** Calls `geminiService.fetchResearchSummary` using the `googleSearch` tool.
+        -   **AI Model:** `gemini-2.5-flash`.
+        -   **Output:** `researchSummary` (string, with source links appended).
+
+---
+
+**Workflow B: From Existing Research (`handleDirectDraft`)**
+1.  **Use Pasted Text as Summary**
+    -   **Input:** `directResearchInput` (string).
+    -   **Action:** Sets the input text directly as the `researchSummary`.
+2.  **Generate Question from Summary**
+    -   **Action:** Calls `geminiService.generateResearchQuestion` using the `researchSummary` as its input.
+    -   **AI Model:** `gemini-2.5-flash`.
+    -   **Output:** `researchQuestion` (string).
+3. **Synthesize and Draft:** The workflow then proceeds to synthesize insights and draft the article in a single, streamlined sequence.
+
+---
+
+**Shared Workflow (Post-Summary)**
+3.  **Synthesize Key Insights (`handleSynthesizeInsights`)**
+    -   **Input:** `researchSummary` (string).
+    -   **Action:** Calls `geminiService.synthesizeKeyInsights` with a JSON response schema.
+    -   **AI Model:** `gemini-2.5-flash`.
+    -   **Output:** `keyInsights` (a `KeyInsights` object: `{consensus, contention, newDevelopment, investorTakeaway}`).
+
+4.  **Draft Article (`handleDraftArticle`)**
+    -   **a. Generate Core Article:**
+        -   **Input:** `researchSummary` (string), `researchQuestion` (string), `keyInsights` (object), `AppConfig` object.
+        -   **Action:** Calls `geminiService.generateArticle` with a language-specific prompt, JSON response schema, and the `keyInsights` to use as the narrative framework.
+        -   **AI Model:** `gemini-2.5-flash`.
+        -   **Output:** `article` (an `Article` object: `{title, meta, slug, sections}`).
+    -   **b. Generate Promotional Content (Conditional on `promoUrl`)**:
+        -   **Input:** `generatedArticle`, `AppConfig`.
+        -   **Action:** Calls `geminiService.generatePromoSection`.
+        -   **Output:** A new `Section` object, which is appended to the `article.sections` array.
+
+5.  **Generate Visuals (Conditional on Toggles)**
+    -   **a. Create Image Prompts:**
+        -   **Input:** `article` object, individual sections.
+        -   **Action:** Calls `geminiService.generateImagePrompt` and `generateImageForSection`.
+        -   **AI Model:** `gemini-2.5-flash`.
+    -   **b. Generate Images:**
+        -   **Input:** Image prompts (string).
+        -   **Action:** Calls `geminiService.generateImage`.
+        -   **AI Model:** `imagen-4.0-generate-001`.
+    -   **c. Compress Images:**
+        -   **Input:** Base64 image data URLs.
+        -   **Action:** Calls `utils.compressImageToJpeg`.
+        -   **Output:** Optimized base64 data URLs (under 100 KB) are stored in state (`imageDataUrl`, `article.sections[i].imageUrl`).
+
+6.  **Internal Linking (Optional, before Publishing)**
+    -   **a. Suggest Links (`handleSuggestInternalLinks`)**:
+        -   **Input:** `article`, `siteKey`.
+        -   **Action:** Calls `geminiService.suggestInternalLinks` using `googleSearch` limited to the site.
+        -   **AI Model:** `gemini-2.5-flash`.
+        -   **Output:** An array of `InternalLinkSuggestion` objects is displayed in the UI.
+    -   **b. Integrate Links (`handleIntegrateLinks`)**:
+        -   **Input:** `article`, user-selected links.
+        -   **Action:** Calls `geminiService.integrateInternalLinks`.
+        -   **AI Model:** `gemini-2.5-flash`.
+        -   **Output:** The `article` state is updated with new HTML content containing the integrated `<a>` tags.
+
+7.  **Publish to WordPress (`handlePublish`)**
+    -   **a. Upload Section Images:** Iterates through article sections. If a section has a base64 image, it's uploaded via `wordpressService.uploadWpMedia`. The base64 URL is replaced with the live WordPress URL in a temporary copy of the article content.
+    -   **b. Upload Featured Image:** The main cover image is uploaded via `wordpressService.uploadWpMedia` to get a media ID.
+    -   **c. Create Post:** The final post is created via `wordpressService.publishArticle`, sending the HTML (with live image URLs) and the `featured_media` ID.
+    -   **Output:** `publishUrl` (string to the WP editor).
+
+## 4. Dependencies
+
+- **Frontend:** React, ReactDOM (served via CDN).
+- **Styling:** Tailwind CSS (served via CDN).
+- **AI SDK:** `@google/genai` (served via CDN).
+- **AI Models Used:**
+    -   **`gemini-2.5-flash`:** For all text-based tasks (question generation, summarization with search, insight synthesis, article drafting, image prompt creation, lookback analysis, internal linking). Its speed and capability are ideal for this interactive workflow.
+    -   **`imagen-4.0-generate-001`:** For high-quality image generation.
+    -   **`gemini-2.5-flash-image-preview`:** For performing edits on user-uploaded images.
+
+## 5. Other Notes
+
+- **State Management:** State is managed locally within the `App.tsx` component via `useState` hooks. The application follows a "reset-on-new-action" pattern, where initiating a new generation process clears the state from the previous run.
+- **Error Handling:** A single `error` state string is used to display user-facing errors. The console provides more detailed logs. The JSON parsing function in `geminiService.ts` is specifically designed to handle and report errors from malformed AI responses.
+- **API Key:** The application assumes the `process.env.API_KEY` variable is available in the execution environment. A placeholder is included for clarity.
+- **Modularity and Prompts:** The core logic of the AI's behavior is defined by the prompts in `constants.ts`. This separation makes it easy to iterate on and fine-tune the AI's performance without altering the application's business logic.
+- **Robust Publishing:** The publishing flow is designed to be robust, ensuring that all local image assets are first uploaded to the target CMS and properly embedded before the final article is created. This avoids broken images and manual cleanup.

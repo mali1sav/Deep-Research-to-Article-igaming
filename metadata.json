@@ -1,0 +1,5 @@
+{
+  "name": "Deep Research Article App 1.3 — Bilingual Brief",
+  "description": "An application that transforms free-form text into a sharp research question, fetches recent sources, and produces a structured article in either English or Thai. It includes features for SEO optimization for Thai content, optional AI-powered image generation, and direct publishing to WordPress.",
+  "requestFramePermissions": []
+}
