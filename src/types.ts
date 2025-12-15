@@ -145,6 +145,7 @@ export interface ArticleConfig {
     targetKeywords: TargetKeyword[];
     seoMode: SeoMode;
     manualSeoSettings?: ManualSeoSettings;
+    primaryKeywordCount?: number;  // Simple count for primary keyword mentions (default 15)
     writingModel: WritingModel;
     toneOfVoice: ToneOfVoice;
     customTone?: string;

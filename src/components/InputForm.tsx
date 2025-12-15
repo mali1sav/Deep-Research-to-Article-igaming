@@ -377,7 +377,8 @@ export const InputForm: React.FC<InputFormProps> = ({
                     <span className="mr-2">✍️</span> Writing Settings
                 </h2>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Row 1: Writing Model | Tone of Voice | Primary KW Count */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label htmlFor="writingModel" className="block text-sm font-medium text-gray-700 mb-2">Writing Model</label>
                         <select 
@@ -407,44 +408,18 @@ export const InputForm: React.FC<InputFormProps> = ({
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="seoMode" className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-                            SEO Optimization
-                            <span 
-                                className="inline-flex items-center justify-center w-4 h-4 text-xs bg-gray-200 text-gray-600 rounded-full cursor-help"
-                                title="Default: Natural keyword placement based on target keywords.&#10;&#10;Manual: You specify exact keyword counts (e.g., use 'casino' exactly 5 times).&#10;&#10;AI-Powered: AI analyzes top competitors and optimizes keyword density automatically."
-                            >?</span>
+                        <label htmlFor="primaryKeywordCount" className="block text-sm font-medium text-gray-700 mb-2">
+                            Primary KW Mentions
                         </label>
-                        <select 
-                            id="seoMode" 
-                            value={config.seoMode} 
-                            onChange={(e) => setConfig({ ...config, seoMode: e.target.value as SeoMode })}
+                        <input
+                            type="number"
+                            id="primaryKeywordCount"
+                            min="1"
+                            max="50"
+                            value={config.primaryKeywordCount || 15}
+                            onChange={(e) => setConfig({ ...config, primaryKeywordCount: parseInt(e.target.value) || 15 })}
                             className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value={SeoMode.DEFAULT}>Default</option>
-                            <option value={SeoMode.MANUAL}>Manual</option>
-                            <option value={SeoMode.AI_POWERED}>AI-Powered</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="targetSectionCount" className="block text-sm font-medium text-gray-700 mb-2">
-                            Article Sections
-                        </label>
-                        <select 
-                            id="targetSectionCount" 
-                            value={config.targetSectionCount || 5} 
-                            onChange={(e) => setConfig({ ...config, targetSectionCount: parseInt(e.target.value, 10) })}
-                            aria-label="Number of article sections"
-                            title="Number of article sections"
-                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value={5}>5 sections (standard)</option>
-                            <option value={6}>6 sections (+1 from competitors)</option>
-                            <option value={7}>7 sections (+2 from competitors)</option>
-                            <option value={8}>8 sections (+3 from competitors)</option>
-                            <option value={9}>9 sections (+4 from competitors)</option>
-                            <option value={10}>10 sections (+5 from competitors)</option>
-                        </select>
-                        <p className="text-xs text-gray-500 mt-1">Extra sections are suggested from SERP competitor analysis</p>
+                        />
                     </div>
                 </div>
 
@@ -462,70 +437,42 @@ export const InputForm: React.FC<InputFormProps> = ({
                     </div>
                 )}
 
-                {config.seoMode === SeoMode.MANUAL && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <h4 className="text-sm font-medium text-gray-700 mb-3">Manual SEO Settings</h4>
-                        <div className="flex gap-2 mb-3">
-                            <input
-                                type="text"
-                                placeholder="Keyword..."
-                                value={newManualKeyword}
-                                onChange={(e) => setNewManualKeyword(e.target.value)}
-                                className="flex-1 bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
-                            />
-                            <input
-                                type="number"
-                                placeholder="Count"
-                                value={newManualKeywordCount}
-                                onChange={(e) => setNewManualKeywordCount(parseInt(e.target.value) || 1)}
-                                min="1"
-                                max="20"
-                                className="w-20 bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button
-                                type="button"
-                                onClick={addManualSeoKeyword}
-                                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition"
-                            >
-                                Add
-                            </button>
-                        </div>
-                        {(config.manualSeoSettings?.keywords?.length || 0) > 0 && (
-                            <div className="space-y-2">
-                                {config.manualSeoSettings?.keywords.map((kw, index) => (
-                                    <div key={index} className="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
-                                        <span className="text-sm text-gray-700">
-                                            <strong>{kw.keyword}</strong> × {kw.count} times
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeManualSeoKeyword(index)}
-                                            className="text-red-500 hover:text-red-700 text-sm"
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                        <p className="text-xs text-gray-500 mt-2">Specify exactly how many times each keyword should appear in the article.</p>
+                {/* Row 2: Custom Instructions | Sections Count */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                    <div className="sm:col-span-2">
+                        <label htmlFor="customInstructions" className="block text-sm font-medium text-gray-700 mb-2">
+                            Custom Instructions <span className="text-gray-400 font-normal">(optional)</span>
+                        </label>
+                        <textarea
+                            id="customInstructions"
+                            rows={2}
+                            placeholder="e.g., Avoid sounding like AI. Follow local gambling advertising regulations..."
+                            value={config.customInstructions || ''}
+                            onChange={(e) => setConfig({ ...config, customInstructions: e.target.value })}
+                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
                     </div>
-                )}
-
-                {/* Custom Instructions */}
-                <div className="mt-4">
-                    <label htmlFor="customInstructions" className="block text-sm font-medium text-gray-700 mb-2">
-                        Custom Instructions <span className="text-gray-400 font-normal">(optional)</span>
-                    </label>
-                    <textarea
-                        id="customInstructions"
-                        rows={3}
-                        placeholder="e.g., Avoid sounding like AI direct translation. Follow local gambling advertising regulations. Use specific terminology..."
-                        value={config.customInstructions || ''}
-                        onChange={(e) => setConfig({ ...config, customInstructions: e.target.value })}
-                        className="w-full bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Add any specific instructions for the writing model to follow.</p>
+                    <div>
+                        <label htmlFor="targetSectionCount" className="block text-sm font-medium text-gray-700 mb-2">
+                            Sections Count
+                        </label>
+                        <select 
+                            id="targetSectionCount" 
+                            value={config.targetSectionCount || 5} 
+                            onChange={(e) => setConfig({ ...config, targetSectionCount: parseInt(e.target.value, 10) })}
+                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value={5}>5 sections</option>
+                            <option value={6}>6 sections</option>
+                            <option value={7}>7 sections</option>
+                            <option value={8}>8 sections</option>
+                            <option value={9}>9 sections</option>
+                            <option value={10}>10 sections</option>
+                        </select>
+                        {(config.targetSectionCount || 5) > 5 && (
+                            <p className="text-xs text-amber-600 mt-1">⚠️ Run SERP Analysis first for extra sections</p>
+                        )}
+                    </div>
                 </div>
             </div>
 
