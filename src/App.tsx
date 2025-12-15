@@ -587,12 +587,15 @@ const App: React.FC = () => {
         html += `</tbody>\n</table>\n[/su_table]\n`;
         html += `<p><strong>Star Rating Aggregation:</strong> The overall star rating (1-5 stars) is calculated by averaging all six category scores: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | Below 4.5 = ⭐</p>\n\n`;
 
-        // FAQs
+        // FAQs using [Q1][A1] format
         if (generatedArticle.faqs.length > 0) {
             html += `<h2>${uiText.frequentlyAskedQuestions}</h2>\n`;
-            generatedArticle.faqs.forEach(faq => {
-                html += `<h3>${faq.question}</h3>\n${faq.answer}\n\n`;
+            generatedArticle.faqs.forEach((faq, index) => {
+                const num = index + 1;
+                html += `[Q${num}]${faq.question}[/Q${num}]\n`;
+                html += `[A${num}]${faq.answer}[/A${num}]\n`;
             });
+            html += `\n`;
         }
 
         // Responsible Gambling Disclaimer using [su_note]
