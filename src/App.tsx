@@ -412,7 +412,7 @@ const App: React.FC = () => {
         </div>`;
     };
 
-    // Helper: Generate infosheet HTML with inline styles
+    // Helper: Generate infosheet HTML with inline styles (for Download HTML)
     const generateInfosheetHtml = (infosheet: any, uiText: any): string => {
         const rows = [
             [uiText.infosheetLicense, infosheet.license],
@@ -450,13 +450,45 @@ const App: React.FC = () => {
         return tableHtml;
     };
 
-    // Clean HTML copy for WordPress/Google Docs (with inline styles)
+    // Helper: Generate infosheet using WordPress Ultimate Shortcode [su_table]
+    const generateInfosheetShortcode = (infosheet: any, uiText: any): string => {
+        let sourceInfo = '';
+        if (infosheet.dataSource || infosheet.retrievedAt) {
+            sourceInfo = '<small>';
+            if (infosheet.dataSource) sourceInfo += `Source: ${infosheet.dataSource}`;
+            if (infosheet.dataSource && infosheet.retrievedAt) sourceInfo += ` • `;
+            if (infosheet.retrievedAt) {
+                const date = new Date(infosheet.retrievedAt);
+                sourceInfo += `Last retrieved: ${date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`;
+            }
+            sourceInfo += '</small>\n\n';
+        }
+        
+        let tableHtml = `<h4>${uiText.platformInformation}</h4>\n`;
+        tableHtml += sourceInfo;
+        tableHtml += `[su_table responsive="yes"]\n`;
+        tableHtml += `<table>\n<tbody>\n`;
+        tableHtml += `<tr><td><strong>${uiText.infosheetLicense}</strong></td><td>${infosheet.license}</td></tr>\n`;
+        tableHtml += `<tr><td><strong>${uiText.infosheetCountry}</strong></td><td>${infosheet.country}</td></tr>\n`;
+        tableHtml += `<tr><td><strong>${uiText.infosheetCompany}</strong></td><td>${infosheet.company}</td></tr>\n`;
+        tableHtml += `<tr><td><strong>${uiText.infosheetMinDeposit}</strong></td><td>${infosheet.minDeposit}</td></tr>\n`;
+        tableHtml += `<tr><td><strong>${uiText.infosheetPayoutSpeed}</strong></td><td>${infosheet.payoutSpeed}</td></tr>\n`;
+        tableHtml += `<tr><td><strong>${uiText.infosheetCurrencies}</strong></td><td>${Array.isArray(infosheet.supportedCurrencies) ? infosheet.supportedCurrencies.join(', ') : infosheet.supportedCurrencies || 'N/A'}</td></tr>\n`;
+        tableHtml += `<tr><td><strong>${uiText.infosheetPaymentMethods}</strong></td><td>${Array.isArray(infosheet.paymentMethods) ? infosheet.paymentMethods.join(', ') : infosheet.paymentMethods || 'N/A'}</td></tr>\n`;
+        tableHtml += `<tr><td><strong>KYC</strong></td><td>${infosheet.kycRequirement || 'Not specified'}</td></tr>\n`;
+        tableHtml += `<tr style="background-color: #fef9c3;"><td><strong>🎁 Bonus</strong></td><td><strong>${infosheet.welcomeBonus || 'Not specified'}</strong></td></tr>\n`;
+        tableHtml += `</tbody>\n</table>\n[/su_table]\n\n`;
+        
+        return tableHtml;
+    };
+
+    // Clean HTML copy for WordPress using Ultimate Shortcode plugin
     const handleCopyCleanHtml = useCallback(() => {
         if (!generatedArticle) return;
 
         const uiText = getUiText(config.language);
 
-        let html = `<!-- Article Content -->\n`;
+        let html = `<!-- Article Content - WordPress Ultimate Shortcode Format -->\n`;
         html += generatedArticle.intro + '\n\n';
         
         // Platform quick list
@@ -466,14 +498,15 @@ const App: React.FC = () => {
         });
         html += `</ol>\n\n`;
 
-        // Comparison table
+        // Comparison table using [su_table]
         if (generatedArticle.comparisonTable.length > 0) {
             html += `<h2>${uiText.platformComparison}</h2>\n`;
-            html += `<table style="width: 100%; border-collapse: collapse; margin: 16px 0;">\n<thead>\n<tr style="background-color: #f3f4f6;"><th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">${uiText.tablePlatform}</th><th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">${uiText.tableLicense}</th><th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">${uiText.tableMinDeposit}</th><th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">${uiText.tablePayoutSpeed}</th><th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">${uiText.tableRating}</th></tr>\n</thead>\n<tbody>\n`;
+            html += `[su_table responsive="yes"]\n`;
+            html += `<table>\n<thead>\n<tr><th>${uiText.tablePlatform}</th><th>${uiText.tableLicense}</th><th>${uiText.tableMinDeposit}</th><th>${uiText.tablePayoutSpeed}</th><th>${uiText.tableRating}</th></tr>\n</thead>\n<tbody>\n`;
             generatedArticle.comparisonTable.forEach(row => {
-                html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 12px;">${row.platformName}</td><td style="padding: 12px;">${row.license}</td><td style="padding: 12px;">${row.minDeposit}</td><td style="padding: 12px;">${row.payoutSpeed}</td><td style="padding: 12px;">${row.rating}</td></tr>\n`;
+                html += `<tr><td>${row.platformName}</td><td>${row.license}</td><td>${row.minDeposit}</td><td>${row.payoutSpeed}</td><td>${row.rating}</td></tr>\n`;
             });
-            html += `</tbody>\n</table>\n\n`;
+            html += `</tbody>\n</table>\n[/su_table]\n\n`;
         }
 
         // Platform reviews
@@ -481,65 +514,77 @@ const App: React.FC = () => {
             html += `<h2>${uiText.platformReviewTitle(review.platformName)}</h2>\n`;
             html += review.overview + '\n\n';
             
-            // Rating bars (if enabled and available)
+            // Rating bars (if enabled and available) - using inline HTML as no shortcode equivalent
             if (config.includeSections.platformRatings && review.ratings && review.ratings.length > 0) {
                 html += `<h3>${uiText.platformRatings}</h3>\n`;
-                html += `<div style="margin: 16px 0;">`;
                 review.ratings.forEach(r => {
-                    html += generateRatingBarHtml(uiText.translateRatingCategory(r.category), r.score);
+                    const score = r.score;
+                    const percentage = (score / 10) * 100;
+                    const barColor = score >= 8 ? '#22c55e' : score >= 6 ? '#eab308' : '#ef4444';
+                    html += `<div style="display: flex; align-items: center; margin-bottom: 8px;">
+                        <span style="width: 140px; font-size: 14px;">${uiText.translateRatingCategory(r.category)}</span>
+                        <div style="flex: 1; height: 12px; background-color: #e5e7eb; border-radius: 6px; margin: 0 12px; overflow: hidden;">
+                            <div style="width: ${percentage}%; height: 100%; background-color: ${barColor}; border-radius: 6px;"></div>
+                        </div>
+                        <span style="font-size: 14px; font-weight: 600;">${score}/10</span>
+                    </div>\n`;
                 });
-                html += `</div>\n\n`;
+                html += `\n`;
             }
             
-            // Infosheet (if enabled)
+            // Infosheet using [su_table]
             if (config.includeSections.platformInfosheet) {
-                html += generateInfosheetHtml(review.infosheet, uiText);
+                html += generateInfosheetShortcode(review.infosheet, uiText);
             }
             
-            // Pros and Cons (if enabled)
+            // Pros and Cons using [su_row][su_column]
             if (config.includeSections.prosCons) {
-                html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;">`;
-                html += `<div style="background-color: #f0fdf4; padding: 16px; border-radius: 8px;">`;
-                html += `<h4 style="font-size: 14px; font-weight: 600; color: #166534; margin-bottom: 12px;">✓ ${uiText.pros}</h4>`;
-                html += `<ul style="margin: 0; padding-left: 0; list-style: none;">`;
+                html += `[su_row]\n`;
+                html += `[su_column size="1/2"]\n`;
+                html += `<h4 style="color: #166534;">✓ ${uiText.pros}</h4>\n`;
+                html += `<ul>\n`;
                 review.pros.forEach(p => {
-                    html += `<li style="margin-bottom: 8px; color: #111827;"><span style="color: #22c55e; margin-right: 8px;">✓</span>${p}</li>`;
+                    html += `<li><span style="color: #22c55e;">✓</span> ${p}</li>\n`;
                 });
-                html += `</ul></div>`;
-                html += `<div style="background-color: #fef2f2; padding: 16px; border-radius: 8px;">`;
-                html += `<h4 style="font-size: 14px; font-weight: 600; color: #991b1b; margin-bottom: 12px;">✗ ${uiText.cons}</h4>`;
-                html += `<ul style="margin: 0; padding-left: 0; list-style: none;">`;
+                html += `</ul>\n`;
+                html += `[/su_column]\n`;
+                html += `[su_column size="1/2"]\n`;
+                html += `<h4 style="color: #991b1b;">✗ ${uiText.cons}</h4>\n`;
+                html += `<ul>\n`;
                 review.cons.forEach(c => {
-                    html += `<li style="margin-bottom: 8px; color: #111827;"><span style="color: #ef4444; margin-right: 8px;">✗</span>${c}</li>`;
+                    html += `<li><span style="color: #ef4444;">✗</span> ${c}</li>\n`;
                 });
-                html += `</ul></div></div>\n\n`;
+                html += `</ul>\n`;
+                html += `[/su_column]\n`;
+                html += `[/su_row]\n\n`;
             }
             
-            // Verdict (if enabled)
+            // Verdict using [su_highlight]
             if (config.includeSections.verdict) {
-                html += `<div style="background-color: #f9fafb; padding: 16px; border-radius: 8px; margin: 16px 0;">`;
-                html += `<h3 style="font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 12px;">${uiText.ourVerdict}</h3>\n`;
-                html += `<div style="color: #111827;">${review.verdict}</div></div>\n\n`;
+                html += `<h3>${uiText.ourVerdict}</h3>\n`;
+                html += `[su_highlight background="#f3f4f6" color="#111827"]\n`;
+                html += `${review.verdict}\n`;
+                html += `[/su_highlight]\n\n`;
             }
             
+            // CTA Button using [su_button]
             if (review.affiliateUrl) {
-                html += `<p style="text-align: center; margin: 24px 0;"><a href="${review.affiliateUrl}" style="display: inline-block; padding: 12px 32px; background-color: #22c55e; color: white; text-decoration: none; font-weight: 600; border-radius: 8px;">${uiText.visitPlatformCta(review.platformName)}</a></p>\n\n`;
+                html += `[su_button url="${review.affiliateUrl}" target="blank" style="flat" background="#22c55e" color="#ffffff" size="6" center="yes" radius="5"]${uiText.visitPlatformCta(review.platformName)}[/su_button]\n\n`;
             }
         });
 
-        // Scoring Methodology Section (before FAQs)
+        // Scoring Methodology Section (before FAQs) using [su_table]
         html += `<h2>Our Rating Methodology</h2>\n`;
         html += `<p>We evaluate each platform across six key categories, with scores from 1-10:</p>\n`;
-        html += `<div style="background-color: #f9fafb; padding: 16px; border-radius: 8px; margin: 16px 0;">`;
-        html += `<table style="width: 100%; font-size: 14px; border-collapse: collapse;">`;
-        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px; font-weight: 600;">Score</td><td style="padding: 8px; font-weight: 600;">Meaning</td><td style="padding: 8px; font-weight: 600;">Criteria</td></tr>`;
-        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">9-10</td><td style="padding: 8px;">Exceptional</td><td style="padding: 8px;">Industry-leading, verified by multiple sources</td></tr>`;
-        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">8</td><td style="padding: 8px;">Excellent</td><td style="padding: 8px;">Top-tier with minor room for improvement</td></tr>`;
-        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">7</td><td style="padding: 8px;">Very Good</td><td style="padding: 8px;">Above average, meets high standards</td></tr>`;
-        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">6</td><td style="padding: 8px;">Good</td><td style="padding: 8px;">Solid, meets expectations</td></tr>`;
-        html += `<tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 8px;">5</td><td style="padding: 8px;">Adequate</td><td style="padding: 8px;">Acceptable but has gaps</td></tr>`;
-        html += `<tr><td style="padding: 8px;">1-4</td><td style="padding: 8px;">Below Average</td><td style="padding: 8px;">Significant issues noted</td></tr>`;
-        html += `</table></div>\n`;
+        html += `[su_table responsive="yes"]\n`;
+        html += `<table>\n<thead>\n<tr><th>Score</th><th>Meaning</th><th>Criteria</th></tr>\n</thead>\n<tbody>\n`;
+        html += `<tr><td>9-10</td><td>Exceptional</td><td>Industry-leading, verified by multiple sources</td></tr>\n`;
+        html += `<tr><td>8</td><td>Excellent</td><td>Top-tier with minor room for improvement</td></tr>\n`;
+        html += `<tr><td>7</td><td>Very Good</td><td>Above average, meets high standards</td></tr>\n`;
+        html += `<tr><td>6</td><td>Good</td><td>Solid, meets expectations</td></tr>\n`;
+        html += `<tr><td>5</td><td>Adequate</td><td>Acceptable but has gaps</td></tr>\n`;
+        html += `<tr><td>1-4</td><td>Below Average</td><td>Significant issues noted</td></tr>\n`;
+        html += `</tbody>\n</table>\n[/su_table]\n`;
         html += `<p><strong>Star Rating Aggregation:</strong> The overall star rating (1-5 stars) is calculated by averaging all six category scores: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | Below 4.5 = ⭐</p>\n\n`;
 
         // FAQs
@@ -550,17 +595,18 @@ const App: React.FC = () => {
             });
         }
 
-        // Responsible Gambling Disclaimer
+        // Responsible Gambling Disclaimer using [su_note]
         if (config.includeResponsibleGamblingDisclaimer) {
             const disclaimerText = config.responsibleGamblingDisclaimerText || 
                 'Gambling involves risk and should be done responsibly. Please only gamble with money you can afford to lose. If you or someone you know has a gambling problem, please seek help from professional organizations. Many jurisdictions have support services available 24/7. You must be of legal gambling age in your jurisdiction to participate in online gambling activities.';
-            html += `<div style="background-color: #fef3c7; padding: 16px; border-radius: 8px; margin: 16px 0;">`;
-            html += `<h3 style="color: #92400e;">⚠️ Responsible Gambling</h3>\n`;
-            html += `<p style="color: #78350f;">${disclaimerText}</p></div>\n`;
+            html += `[su_note note_color="#fef3c7" text_color="#78350f"]\n`;
+            html += `<strong>⚠️ Responsible Gambling</strong>\n`;
+            html += `${disclaimerText}\n`;
+            html += `[/su_note]\n`;
         }
 
         navigator.clipboard.writeText(html);
-    }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, config.includeSections]);
+    }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, config.includeSections, generateInfosheetShortcode]);
 
     const handleDownloadHtml = useCallback(() => {
         if (!generatedArticle) return;
