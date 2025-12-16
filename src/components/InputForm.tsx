@@ -380,92 +380,96 @@ export const InputForm: React.FC<InputFormProps> = ({
                     <span className="mr-2">✍️</span> Writing & SEO Settings
                 </h2>
                 
-                {/* Compact row: Tone, Primary KW Mentions */}
-                <div className="flex flex-wrap items-end gap-4 mb-4">
-                    <div className="flex-shrink-0">
-                        <label htmlFor="toneOfVoice" className="block text-xs font-medium text-gray-700 mb-1">Tone</label>
-                        <select 
-                            id="toneOfVoice" 
-                            value={config.toneOfVoice} 
-                            onChange={(e) => setConfig({ ...config, toneOfVoice: e.target.value as ToneOfVoice })}
-                            className="bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value={ToneOfVoice.PROFESSIONAL}>Professional</option>
-                            <option value={ToneOfVoice.FRIENDLY}>Friendly</option>
-                            <option value={ToneOfVoice.FORMAL}>Formal</option>
-                            <option value={ToneOfVoice.CASUAL}>Casual</option>
-                            <option value={ToneOfVoice.CUSTOM}>Custom...</option>
-                        </select>
-                    </div>
-                    <div className="flex-shrink-0">
-                        <label htmlFor="primaryKeywordCount" className="block text-xs font-medium text-gray-700 mb-1">Primary KW Mentions</label>
-                        <input
-                            type="number"
-                            id="primaryKeywordCount"
-                            min="1"
-                            max="50"
-                            value={config.primaryKeywordCount || 15}
-                            onChange={(e) => setConfig({ ...config, primaryKeywordCount: parseInt(e.target.value) || 15 })}
-                            className="w-20 bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                {/* 3-column layout */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    {/* Left: Target Keywords */}
+                    <div>
+                        <label htmlFor="targetKeywords" className="block text-sm font-medium text-gray-700 mb-1">
+                            🔑 Target Keywords <span className="text-gray-400 font-normal text-xs">(first = primary)</span>
+                        </label>
+                        <textarea
+                            id="targetKeywords"
+                            rows={4}
+                            className="w-full h-[120px] bg-white border border-gray-300 rounded-md p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
+                            placeholder="best online casino thailand&#10;thai casino 2025&#10;online gambling thailand"
+                            value={keywordsRawInput}
+                            onChange={(e) => {
+                                const rawValue = e.target.value;
+                                setKeywordsRawInput(rawValue);
+                                const lines = rawValue.split('\n');
+                                const keywords = lines
+                                    .filter(line => line.trim())
+                                    .map((line, i) => ({
+                                        keyword: line.trim(),
+                                        isPrimary: i === 0
+                                    }));
+                                setConfig({ ...config, targetKeywords: keywords });
+                            }}
                         />
                     </div>
-                    {config.toneOfVoice === ToneOfVoice.CUSTOM && (
-                        <div className="flex-1 min-w-[200px]">
-                            <label htmlFor="customTone" className="block text-xs font-medium text-gray-700 mb-1">Custom Tone</label>
-                            <input 
-                                type="text" 
-                                id="customTone" 
-                                placeholder="e.g., Enthusiastic but informative..."
-                                value={config.customTone || ''} 
-                                onChange={(e) => setConfig({ ...config, customTone: e.target.value })}
+
+                    {/* Middle: Custom Instructions */}
+                    <div>
+                        <label htmlFor="customInstructions" className="block text-sm font-medium text-gray-700 mb-1">
+                            Custom Instructions <span className="text-gray-400 font-normal text-xs">(optional)</span>
+                        </label>
+                        <textarea
+                            id="customInstructions"
+                            rows={4}
+                            placeholder="e.g., Avoid sounding like AI. Follow local gambling advertising regulations..."
+                            value={config.customInstructions || ''}
+                            onChange={(e) => setConfig({ ...config, customInstructions: e.target.value })}
+                            className="w-full h-[120px] bg-white border border-gray-300 rounded-md p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
+                        />
+                    </div>
+
+                    {/* Right: Tone + Primary KW Mentions stacked */}
+                    <div className="space-y-3">
+                        <div>
+                            <label htmlFor="toneOfVoice" className="block text-sm font-medium text-gray-700 mb-1">Tone of Voice</label>
+                            <select 
+                                id="toneOfVoice" 
+                                value={config.toneOfVoice} 
+                                onChange={(e) => setConfig({ ...config, toneOfVoice: e.target.value as ToneOfVoice })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value={ToneOfVoice.PROFESSIONAL}>Professional</option>
+                                <option value={ToneOfVoice.FRIENDLY}>Friendly</option>
+                                <option value={ToneOfVoice.FORMAL}>Formal</option>
+                                <option value={ToneOfVoice.CASUAL}>Casual</option>
+                                <option value={ToneOfVoice.CUSTOM}>Custom...</option>
+                            </select>
+                        </div>
+                        {config.toneOfVoice === ToneOfVoice.CUSTOM && (
+                            <div>
+                                <label htmlFor="customTone" className="block text-xs font-medium text-gray-700 mb-1">Custom Tone</label>
+                                <input 
+                                    type="text" 
+                                    id="customTone" 
+                                    placeholder="e.g., Enthusiastic but informative..."
+                                    value={config.customTone || ''} 
+                                    onChange={(e) => setConfig({ ...config, customTone: e.target.value })}
+                                    className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        )}
+                        <div>
+                            <label htmlFor="primaryKeywordCount" className="block text-sm font-medium text-gray-700 mb-1">Primary KW Mentions</label>
+                            <input
+                                type="number"
+                                id="primaryKeywordCount"
+                                min="1"
+                                max="50"
+                                value={config.primaryKeywordCount || 15}
+                                onChange={(e) => setConfig({ ...config, primaryKeywordCount: parseInt(e.target.value) || 15 })}
                                 className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                             />
+                            <p className="text-xs text-gray-500 mt-1">Times to mention primary keyword</p>
                         </div>
-                    )}
+                    </div>
                 </div>
 
-                {/* Target Keywords - needs space */}
-                <div className="mb-4">
-                    <label htmlFor="targetKeywords" className="block text-sm font-medium text-gray-700 mb-1">
-                        🔑 Target Keywords <span className="text-gray-400 font-normal text-xs">(one per line, first = primary)</span>
-                    </label>
-                    <textarea
-                        id="targetKeywords"
-                        rows={3}
-                        className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
-                        placeholder="best online casino thailand&#10;thai casino 2025&#10;online gambling thailand"
-                        value={keywordsRawInput}
-                        onChange={(e) => {
-                            const rawValue = e.target.value;
-                            setKeywordsRawInput(rawValue);
-                            const lines = rawValue.split('\n');
-                            const keywords = lines
-                                .filter(line => line.trim())
-                                .map((line, i) => ({
-                                    keyword: line.trim(),
-                                    isPrimary: i === 0
-                                }));
-                            setConfig({ ...config, targetKeywords: keywords });
-                        }}
-                    />
-                </div>
-
-                {/* Custom Instructions - needs space */}
-                <div className="mb-4">
-                    <label htmlFor="customInstructions" className="block text-sm font-medium text-gray-700 mb-1">
-                        Custom Instructions <span className="text-gray-400 font-normal text-xs">(optional)</span>
-                    </label>
-                    <textarea
-                        id="customInstructions"
-                        rows={2}
-                        placeholder="e.g., Avoid sounding like AI. Follow local gambling advertising regulations..."
-                        value={config.customInstructions || ''}
-                        onChange={(e) => setConfig({ ...config, customInstructions: e.target.value })}
-                        className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                </div>
-
-                {/* Internal Linking - needs space */}
+                {/* Internal Links - bottom of section */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">🔗 Internal Links</label>
                     <div className="flex gap-2">
