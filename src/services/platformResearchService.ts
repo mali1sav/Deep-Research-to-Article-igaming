@@ -1416,3 +1416,49 @@ export const generateFullArticle = async (
         allCitations
     };
 };
+
+/**
+ * Refresh only specific platform reviews - re-research and regenerate reviews
+ * while keeping other article sections intact
+ */
+export const refreshPlatformReviews = async (
+    platformNames: string[],
+    config: ArticleConfig,
+    existingArticle: GeneratedArticle,
+    onProgress?: (phase: string, detail?: string) => void
+): Promise<{ 
+    updatedResearch: PlatformResearch[]; 
+    updatedReviews: PlatformReview[];
+}> => {
+    // Re-research selected platforms
+    onProgress?.('researching', `Re-researching ${platformNames.length} platform(s)...`);
+    
+    const researchResults = await researchAllPlatforms(
+        platformNames,
+        (completed, total, platformName) => {
+            onProgress?.('researching', `Researched ${platformName} (${completed}/${total})`);
+        }
+    );
+
+    // Regenerate reviews for selected platforms
+    onProgress?.('generating-reviews', 'Regenerating platform reviews...');
+    const updatedReviews: PlatformReview[] = [];
+    
+    for (let i = 0; i < researchResults.length; i++) {
+        const research = researchResults[i];
+        const platformInput = config.platforms.find(p => p.name === research.name);
+        onProgress?.('generating-reviews', `${research.name} (${i + 1}/${researchResults.length})`);
+        
+        const review = await generatePlatformReview(
+            research,
+            config,
+            platformInput?.affiliateUrl
+        );
+        updatedReviews.push(review);
+    }
+
+    return {
+        updatedResearch: researchResults,
+        updatedReviews
+    };
+};

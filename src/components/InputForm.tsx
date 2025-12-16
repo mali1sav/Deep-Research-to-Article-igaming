@@ -276,12 +276,12 @@ export const InputForm: React.FC<InputFormProps> = ({
                                 onChange={(e) => setConfig({ ...config, targetSectionCount: parseInt(e.target.value, 10) })}
                                 className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value={5}>5</option>
-                                <option value={6}>6</option>
-                                <option value={7}>7</option>
-                                <option value={8}>8</option>
-                                <option value={9}>9</option>
-                                <option value={10}>10</option>
+                                <option value={5}>5 (Intro, List, Comparison, Reviews, FAQs)</option>
+                                <option value={6}>6 (Run SERP for AI to add sections)</option>
+                                <option value={7}>7 (Run SERP for AI to add sections)</option>
+                                <option value={8}>8 (Run SERP for AI to add sections)</option>
+                                <option value={9}>9 (Run SERP for AI to add sections)</option>
+                                <option value={10}>10 (Run SERP for AI to add sections)</option>
                             </select>
                         </div>
                         <div>
@@ -298,9 +298,6 @@ export const InputForm: React.FC<InputFormProps> = ({
                             </select>
                         </div>
                     </div>
-                    {(config.targetSectionCount || 5) > 5 && (
-                        <p className="text-xs text-amber-600 mt-1">⚠️ Run SERP Analysis first for extra sections</p>
-                    )}
 
                     {/* Article Structure Toggles */}
                     <div className="pt-4 border-t border-gray-200">
