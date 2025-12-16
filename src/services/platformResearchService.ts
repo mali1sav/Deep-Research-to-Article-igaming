@@ -108,7 +108,12 @@ async function callOpenRouterDeepResearch(messages: OpenRouterMessage[]): Promis
         body: JSON.stringify({
             model: OPENROUTER_MODEL,
             messages: messages,
-            reasoning: { enabled: true }
+            reasoning: { enabled: true },
+            // Force AtlasCloud provider for better uptime (reduces 503 errors)
+            provider: {
+                order: ["atlas-cloud"],
+                allow_fallbacks: true  // Allow fallback to other providers if AtlasCloud is unavailable
+            }
         })
     });
 
