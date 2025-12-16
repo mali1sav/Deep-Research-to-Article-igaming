@@ -16,16 +16,12 @@ import {
     Language, 
     PlatformResearch, 
     GeneratedArticle,
-    ReviewTemplate,
     WorkflowPhase,
     WritingModel,
     SeoMode,
     ToneOfVoice
 } from './types';
 import { 
-    listTemplates, 
-    saveTemplate, 
-    deleteTemplate,
     DEFAULT_SECTION_WORD_COUNTS,
     DEFAULT_INCLUDE_SECTIONS
 } from './utils/templates';
@@ -170,8 +166,6 @@ const App: React.FC = () => {
         };
     });
 
-    // Template state
-    const [templates, setTemplates] = useState<ReviewTemplate[]>([]);
 
     // Workflow state
     const [workflowPhase, setWorkflowPhase] = useState<WorkflowPhase>('idle');
@@ -206,40 +200,28 @@ const App: React.FC = () => {
         }
     }, []);
 
-    // Load templates on mount
-    useEffect(() => {
-        setTemplates(listTemplates());
-    }, []);
-
     // Auto-save config whenever it changes
     useEffect(() => {
         saveConfig(config);
     }, [config]);
 
-    const handleSaveTemplate = (name: string) => {
-        const newTemplate = saveTemplate(name, {
-            language: config.language,
-            introWordCount: config.introWordCount,
-            sectionWordCounts: config.sectionWordCounts,
-            includeSections: config.includeSections
-        });
-        setTemplates(prev => [...prev, newTemplate]);
-    };
-
-    const handleLoadTemplate = (template: ReviewTemplate) => {
-        setConfig(prev => ({
-            ...prev,
-            language: template.language,
-            introWordCount: template.introWordCount,
-            sectionWordCounts: template.sectionWordCounts,
-            includeSections: template.includeSections
-        }));
-    };
-
-    const handleDeleteTemplate = (id: string) => {
-        deleteTemplate(id);
-        setTemplates(prev => prev.filter(t => t.id !== id));
-    };
+    // Clear all form data
+    const handleClearAll = useCallback(() => {
+        const defaultConfig: ArticleConfig = {
+            language: Language.ENGLISH,
+            introNarrative: '',
+            introWordCount: 200,
+            platforms: [],
+            sectionWordCounts: DEFAULT_SECTION_WORD_COUNTS,
+            includeSections: DEFAULT_INCLUDE_SECTIONS,
+            targetKeywords: [],
+            seoMode: SeoMode.DEFAULT,
+            writingModel: WritingModel.GEMINI_2_5_PRO,
+            toneOfVoice: ToneOfVoice.PROFESSIONAL,
+        };
+        setConfig(defaultConfig);
+        localStorage.removeItem(CONFIG_STORAGE_KEY);
+    }, []);
 
     const resetState = () => {
         setWorkflowPhase('idle');
@@ -766,10 +748,7 @@ const App: React.FC = () => {
                     <InputForm
                         config={config}
                         setConfig={setConfig}
-                        templates={templates}
-                        onSaveTemplate={handleSaveTemplate}
-                        onLoadTemplate={handleLoadTemplate}
-                        onDeleteTemplate={handleDeleteTemplate}
+                        onClearAll={handleClearAll}
                         onSubmit={handleStartResearch}
                         isLoading={isLoading}
                         serpCompetitors={serpCompetitors}

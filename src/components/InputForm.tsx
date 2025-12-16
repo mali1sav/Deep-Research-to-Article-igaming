@@ -3,14 +3,12 @@ import {
     ArticleConfig, 
     Language, 
     PlatformInput, 
-    ReviewTemplate, 
     IncludeSections, 
     SectionWordCounts,
     WritingModel,
-    SeoMode,
     ToneOfVoice,
-    TargetKeyword,
-    InternalLink
+    InternalLink,
+    TargetKeyword
 } from '../types';
 import { generateResponsibleGamblingDisclaimer } from '../services/platformResearchService';
 
@@ -51,10 +49,7 @@ interface SerpCompetitor {
 interface InputFormProps {
     config: ArticleConfig;
     setConfig: (config: ArticleConfig) => void;
-    templates: ReviewTemplate[];
-    onSaveTemplate: (name: string) => void;
-    onLoadTemplate: (template: ReviewTemplate) => void;
-    onDeleteTemplate: (id: string) => void;
+    onClearAll: () => void;
     onSubmit: () => void;
     isLoading: boolean;
     // SERP Analysis props
@@ -66,10 +61,7 @@ interface InputFormProps {
 export const InputForm: React.FC<InputFormProps> = ({ 
     config, 
     setConfig, 
-    templates,
-    onSaveTemplate,
-    onLoadTemplate,
-    onDeleteTemplate,
+    onClearAll,
     onSubmit, 
     isLoading,
     serpCompetitors = [],
@@ -77,10 +69,7 @@ export const InputForm: React.FC<InputFormProps> = ({
     onAnalyzeSerpCompetitors
 }) => {
     const [newPlatformName, setNewPlatformName] = useState('');
-    const [settingsExpanded, setSettingsExpanded] = useState(false);
-    const [newTemplateName, setNewTemplateName] = useState('');
-    const [showSaveTemplateInput, setShowSaveTemplateInput] = useState(false);
-    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+    const [settingsExpanded, setSettingsExpanded] = useState(true);
     const [newKeyword, setNewKeyword] = useState('');
     const [seoSettingsExpanded, setSeoSettingsExpanded] = useState(false);
     const [newManualKeyword, setNewManualKeyword] = useState('');
@@ -200,14 +189,6 @@ export const InputForm: React.FC<InputFormProps> = ({
         setConfig({ ...config, internalLinks: updated });
     };
 
-    const handleSaveTemplate = () => {
-        if (newTemplateName.trim()) {
-            onSaveTemplate(newTemplateName.trim());
-            setNewTemplateName('');
-            setShowSaveTemplateInput(false);
-        }
-    };
-
     const Toggle = ({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) => (
         <label className="flex items-center cursor-pointer">
             <div className="relative">
@@ -226,52 +207,37 @@ export const InputForm: React.FC<InputFormProps> = ({
 
     return (
         <div className="space-y-6">
-            {/* Section 1: Article Introduction & Narrative */}
+            {/* Clear All Button - Top Right */}
+            <div className="flex justify-end">
+                <button
+                    type="button"
+                    onClick={onClearAll}
+                    className="px-4 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition font-medium"
+                >
+                    🗑️ Clear All
+                </button>
+            </div>
+
+            {/* Section 1: Article Structure and Settings */}
             <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="mr-2">📝</span> Article Introduction & Narrative
+                    <span className="mr-2">📝</span> Article Structure and Settings
                 </h2>
                 
                 <div className="space-y-4">
-                    {/* Narrative + Keywords side by side */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        <div className="lg:col-span-2">
-                            <label htmlFor="introNarrative" className="block text-sm font-medium text-gray-700 mb-2">
-                                Describe the angle/narrative for this review article
-                            </label>
-                            <textarea
-                                id="introNarrative"
-                                rows={4}
-                                className="w-full h-24 bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-gray-400"
-                                placeholder="e.g., Best online casinos for Thai players in 2025, focusing on fast withdrawals and Thai Baht support..."
-                                value={config.introNarrative}
-                                onChange={(e) => setConfig({ ...config, introNarrative: e.target.value })}
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="targetKeywords" className="block text-sm font-medium text-gray-700 mb-2">
-                                🔑 Target Keywords <span className="text-gray-400 font-normal">(optional)</span>
-                            </label>
-                            <textarea
-                                id="targetKeywords"
-                                rows={4}
-                                className="w-full h-24 bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-gray-400 text-sm"
-                                placeholder="One keyword per line&#10;First line = primary keyword"
-                                value={keywordsRawInput}
-                                onChange={(e) => {
-                                    const rawValue = e.target.value;
-                                    setKeywordsRawInput(rawValue);
-                                    const lines = rawValue.split('\n');
-                                    const keywords = lines
-                                        .filter(line => line.trim())
-                                        .map((line, i) => ({
-                                            keyword: line.trim(),
-                                            isPrimary: i === 0
-                                        }));
-                                    setConfig({ ...config, targetKeywords: keywords });
-                                }}
-                            />
-                        </div>
+                    {/* Narrative */}
+                    <div>
+                        <label htmlFor="introNarrative" className="block text-sm font-medium text-gray-700 mb-2">
+                            Describe the angle/narrative for this review article
+                        </label>
+                        <textarea
+                            id="introNarrative"
+                            rows={3}
+                            className="w-full bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-gray-400"
+                            placeholder="e.g., Best online casinos for Thai players in 2025, focusing on fast withdrawals and Thai Baht support..."
+                            value={config.introNarrative}
+                            onChange={(e) => setConfig({ ...config, introNarrative: e.target.value })}
+                        />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -303,71 +269,97 @@ export const InputForm: React.FC<InputFormProps> = ({
                             />
                         </div>
                         <div>
-                            <label htmlFor="template" className="block text-sm font-medium text-gray-700 mb-2">Template</label>
-                            <div className="flex gap-2">
-                                <select 
-                                    id="template"
-                                    className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                                    disabled={templates.length === 0}
-                                    value={selectedTemplateId}
-                                    onChange={(e) => {
-                                        const nextId = e.target.value;
-                                        setSelectedTemplateId(nextId);
-                                        const template = templates.find(t => t.id === nextId);
-                                        if (template) onLoadTemplate(template);
-                                    }}
-                                >
-                                    <option value="" disabled>
-                                        {templates.length === 0 ? 'No saved templates' : 'Load template...'}
-                                    </option>
-                                    {templates.map(t => (
-                                        <option key={t.id} value={t.id}>{t.name}</option>
-                                    ))}
-                                </select>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowSaveTemplateInput(!showSaveTemplateInput)}
-                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition"
-                                >
-                                    Save
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={!selectedTemplateId}
-                                    onClick={() => {
-                                        if (!selectedTemplateId) return;
-                                        onDeleteTemplate(selectedTemplateId);
-                                        setSelectedTemplateId('');
-                                    }}
-                                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                            <p className="mt-1 text-xs text-gray-500">
-                                Templates save and restore your settings (language, word counts, included sections) in this browser.
-                            </p>
-                            {showSaveTemplateInput && (
-                                <div className="mt-2 flex gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Template name..."
-                                        value={newTemplateName}
-                                        onChange={(e) => setNewTemplateName(e.target.value)}
-                                        className="flex-1 bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleSaveTemplate}
-                                        className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition"
-                                    >
-                                        Save
-                                    </button>
-                                </div>
+                            <label htmlFor="targetSectionCount" className="block text-sm font-medium text-gray-700 mb-2">
+                                Sections Count
+                            </label>
+                            <select 
+                                id="targetSectionCount" 
+                                value={config.targetSectionCount || 5} 
+                                onChange={(e) => setConfig({ ...config, targetSectionCount: parseInt(e.target.value, 10) })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value={5}>5 sections</option>
+                                <option value={6}>6 sections</option>
+                                <option value={7}>7 sections</option>
+                                <option value={8}>8 sections</option>
+                                <option value={9}>9 sections</option>
+                                <option value={10}>10 sections</option>
+                            </select>
+                            {(config.targetSectionCount || 5) > 5 && (
+                                <p className="text-xs text-amber-600 mt-1">⚠️ Run SERP Analysis first for extra sections</p>
                             )}
                         </div>
                     </div>
 
+                    {/* Article Structure Toggles */}
+                    <div className="pt-4 border-t border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-700 mb-3">Include in article:</h3>
+                        <div className="flex flex-wrap gap-x-6 gap-y-3">
+                            <Toggle 
+                                checked={config.includeSections.comparisonTable} 
+                                onChange={(v) => updateIncludeSection('comparisonTable', v)} 
+                                label="Comparison Table" 
+                            />
+                            <Toggle 
+                                checked={config.includeSections.faqs} 
+                                onChange={(v) => updateIncludeSection('faqs', v)} 
+                                label="FAQs Section" 
+                            />
+                            <Toggle 
+                                checked={config.includeResponsibleGamblingDisclaimer || false} 
+                                onChange={(v) => setConfig({ ...config, includeResponsibleGamblingDisclaimer: v })} 
+                                label="Responsible Gambling Disclaimer" 
+                            />
+                        </div>
+                    </div>
+
+                    {/* Responsible Gambling Disclaimer Customization */}
+                    {config.includeResponsibleGamblingDisclaimer && (
+                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Disclaimer Text
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        setDisclaimerLoading(true);
+                                        try {
+                                            const text = await generateResponsibleGamblingDisclaimer(config.language);
+                                            setConfig({ ...config, responsibleGamblingDisclaimerText: text });
+                                        } catch (e) {
+                                            console.error('Failed to generate disclaimer:', e);
+                                        }
+                                        setDisclaimerLoading(false);
+                                    }}
+                                    disabled={disclaimerLoading}
+                                    className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-md font-medium transition flex items-center gap-1"
+                                >
+                                    {disclaimerLoading ? (
+                                        <>
+                                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                            </svg>
+                                            Generating...
+                                        </>
+                                    ) : (
+                                        <>✨ Auto-generate for {config.language}</>
+                                    )}
+                                </button>
+                            </div>
+                            <textarea
+                                rows={3}
+                                placeholder="Enter custom disclaimer text or click 'Auto-generate' to create one based on the selected language/market..."
+                                value={config.responsibleGamblingDisclaimerText || ''}
+                                onChange={(e) => setConfig({ ...config, responsibleGamblingDisclaimerText: e.target.value })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Leave empty to use default disclaimer, or customize/auto-generate for your market.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -377,8 +369,7 @@ export const InputForm: React.FC<InputFormProps> = ({
                     <span className="mr-2">✍️</span> Writing Settings
                 </h2>
                 
-                {/* Row 1: Writing Model | Tone of Voice | Primary KW Count */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="writingModel" className="block text-sm font-medium text-gray-700 mb-2">Writing Model</label>
                         <select 
@@ -407,20 +398,6 @@ export const InputForm: React.FC<InputFormProps> = ({
                             <option value={ToneOfVoice.CUSTOM}>Custom...</option>
                         </select>
                     </div>
-                    <div>
-                        <label htmlFor="primaryKeywordCount" className="block text-sm font-medium text-gray-700 mb-2">
-                            Primary KW Mentions
-                        </label>
-                        <input
-                            type="number"
-                            id="primaryKeywordCount"
-                            min="1"
-                            max="50"
-                            value={config.primaryKeywordCount || 15}
-                            onChange={(e) => setConfig({ ...config, primaryKeywordCount: parseInt(e.target.value) || 15 })}
-                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
                 </div>
 
                 {config.toneOfVoice === ToneOfVoice.CUSTOM && (
@@ -437,102 +414,127 @@ export const InputForm: React.FC<InputFormProps> = ({
                     </div>
                 )}
 
-                {/* Row 2: Custom Instructions | Sections Count */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-                    <div className="sm:col-span-2">
-                        <label htmlFor="customInstructions" className="block text-sm font-medium text-gray-700 mb-2">
-                            Custom Instructions <span className="text-gray-400 font-normal">(optional)</span>
-                        </label>
-                        <textarea
-                            id="customInstructions"
-                            rows={2}
-                            placeholder="e.g., Avoid sounding like AI. Follow local gambling advertising regulations..."
-                            value={config.customInstructions || ''}
-                            onChange={(e) => setConfig({ ...config, customInstructions: e.target.value })}
-                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label htmlFor="targetSectionCount" className="block text-sm font-medium text-gray-700 mb-2">
-                            Sections Count
-                        </label>
-                        <select 
-                            id="targetSectionCount" 
-                            value={config.targetSectionCount || 5} 
-                            onChange={(e) => setConfig({ ...config, targetSectionCount: parseInt(e.target.value, 10) })}
-                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value={5}>5 sections</option>
-                            <option value={6}>6 sections</option>
-                            <option value={7}>7 sections</option>
-                            <option value={8}>8 sections</option>
-                            <option value={9}>9 sections</option>
-                            <option value={10}>10 sections</option>
-                        </select>
-                        {(config.targetSectionCount || 5) > 5 && (
-                            <p className="text-xs text-amber-600 mt-1">⚠️ Run SERP Analysis first for extra sections</p>
-                        )}
-                    </div>
+                <div className="mt-4">
+                    <label htmlFor="customInstructions" className="block text-sm font-medium text-gray-700 mb-2">
+                        Custom Instructions <span className="text-gray-400 font-normal">(optional)</span>
+                    </label>
+                    <textarea
+                        id="customInstructions"
+                        rows={2}
+                        placeholder="e.g., Avoid sounding like AI. Follow local gambling advertising regulations..."
+                        value={config.customInstructions || ''}
+                        onChange={(e) => setConfig({ ...config, customInstructions: e.target.value })}
+                        className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
                 </div>
             </div>
 
-            {/* Section 4: Internal Linking */}
+            {/* Section 3: SEO Settings */}
             <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="mr-2">🔗</span> Internal Linking
+                    <span className="mr-2">🎯</span> SEO Settings
                 </h2>
                 
                 <div className="space-y-4">
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            placeholder="Anchor text..."
-                            value={newLinkAnchor}
-                            onChange={(e) => setNewLinkAnchor(e.target.value)}
-                            className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                    {/* Target Keywords */}
+                    <div>
+                        <label htmlFor="targetKeywords" className="block text-sm font-medium text-gray-700 mb-2">
+                            🔑 Target Keywords <span className="text-gray-400 font-normal">(one per line, first = primary)</span>
+                        </label>
+                        <textarea
+                            id="targetKeywords"
+                            rows={3}
+                            className="w-full bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-gray-400 text-sm"
+                            placeholder="best online casino thailand&#10;thai casino 2025&#10;online gambling thailand"
+                            value={keywordsRawInput}
+                            onChange={(e) => {
+                                const rawValue = e.target.value;
+                                setKeywordsRawInput(rawValue);
+                                const lines = rawValue.split('\n');
+                                const keywords = lines
+                                    .filter(line => line.trim())
+                                    .map((line, i) => ({
+                                        keyword: line.trim(),
+                                        isPrimary: i === 0
+                                    }));
+                                setConfig({ ...config, targetKeywords: keywords });
+                            }}
                         />
-                        <input
-                            type="text"
-                            placeholder="URL..."
-                            value={newLinkUrl}
-                            onChange={(e) => setNewLinkUrl(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && addInternalLink()}
-                            className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                        />
-                        <button
-                            type="button"
-                            onClick={addInternalLink}
-                            aria-label="Add internal link"
-                            title="Add internal link"
-                            className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium transition flex items-center"
-                        >
-                            <PlusIcon />
-                        </button>
                     </div>
 
-                    {(config.internalLinks?.length || 0) > 0 && (
-                        <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
-                            {config.internalLinks?.map((link, index) => (
-                                <div key={index} className="flex items-center justify-between p-3">
-                                    <div className="flex-1">
-                                        <span className="font-medium text-blue-600">{link.anchorText}</span>
-                                        <span className="mx-2 text-gray-400">→</span>
-                                        <span className="text-gray-600 text-sm truncate">{link.url}</span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => removeInternalLink(index)}
-                                        aria-label="Remove link"
-                                        title="Remove link"
-                                        className="p-2 text-red-500 hover:bg-red-50 rounded-md transition"
-                                    >
-                                        <TrashIcon />
-                                    </button>
-                                </div>
-                            ))}
+                    {/* Primary KW Mentions */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="primaryKeywordCount" className="block text-sm font-medium text-gray-700 mb-2">
+                                Primary KW Mentions
+                            </label>
+                            <input
+                                type="number"
+                                id="primaryKeywordCount"
+                                min="1"
+                                max="50"
+                                value={config.primaryKeywordCount || 15}
+                                onChange={(e) => setConfig({ ...config, primaryKeywordCount: parseInt(e.target.value) || 15 })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Target number of times to mention the primary keyword.</p>
                         </div>
-                    )}
-                    <p className="text-xs text-gray-500">These links will be automatically inserted into the article where the anchor text appears naturally.</p>
+                    </div>
+
+                    {/* Internal Linking */}
+                    <div className="pt-4 border-t border-gray-200">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">🔗 Internal Links</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                placeholder="Anchor text..."
+                                value={newLinkAnchor}
+                                onChange={(e) => setNewLinkAnchor(e.target.value)}
+                                className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                                type="text"
+                                placeholder="URL..."
+                                value={newLinkUrl}
+                                onChange={(e) => setNewLinkUrl(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && addInternalLink()}
+                                className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={addInternalLink}
+                                aria-label="Add internal link"
+                                title="Add internal link"
+                                className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium transition flex items-center"
+                            >
+                                <PlusIcon />
+                            </button>
+                        </div>
+
+                        {(config.internalLinks?.length || 0) > 0 && (
+                            <div className="mt-3 border border-gray-200 rounded-lg divide-y divide-gray-200">
+                                {config.internalLinks?.map((link, index) => (
+                                    <div key={index} className="flex items-center justify-between p-3">
+                                        <div className="flex-1">
+                                            <span className="font-medium text-blue-600">{link.anchorText}</span>
+                                            <span className="mx-2 text-gray-400">→</span>
+                                            <span className="text-gray-600 text-sm truncate">{link.url}</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeInternalLink(index)}
+                                            aria-label="Remove link"
+                                            title="Remove link"
+                                            className="p-2 text-red-500 hover:bg-red-50 rounded-md transition"
+                                        >
+                                            <TrashIcon />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">Links will be automatically inserted where anchor text appears naturally.</p>
+                    </div>
                 </div>
             </div>
 
@@ -678,81 +680,6 @@ export const InputForm: React.FC<InputFormProps> = ({
                                     />
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Article Structure Settings */}
-            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="mr-2">📑</span> Article Structure
-                </h2>
-                <div className="space-y-4">
-                    <div className="flex flex-wrap gap-x-6 gap-y-3">
-                        <Toggle 
-                            checked={config.includeSections.comparisonTable} 
-                            onChange={(v) => updateIncludeSection('comparisonTable', v)} 
-                            label="Comparison Table" 
-                        />
-                        <Toggle 
-                            checked={config.includeSections.faqs} 
-                            onChange={(v) => updateIncludeSection('faqs', v)} 
-                            label="FAQs Section" 
-                        />
-                        <Toggle 
-                            checked={config.includeResponsibleGamblingDisclaimer || false} 
-                            onChange={(v) => setConfig({ ...config, includeResponsibleGamblingDisclaimer: v })} 
-                            label="Responsible Gambling Disclaimer" 
-                        />
-                    </div>
-                    <p className="text-xs text-gray-500">These sections appear alongside the main platform reviews in the final article.</p>
-                    
-                    {/* Responsible Gambling Disclaimer Customization */}
-                    {config.includeResponsibleGamblingDisclaimer && (
-                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="block text-sm font-medium text-gray-700">
-                                    Disclaimer Text
-                                </label>
-                                <button
-                                    type="button"
-                                    onClick={async () => {
-                                        setDisclaimerLoading(true);
-                                        try {
-                                            const text = await generateResponsibleGamblingDisclaimer(config.language);
-                                            setConfig({ ...config, responsibleGamblingDisclaimerText: text });
-                                        } catch (e) {
-                                            console.error('Failed to generate disclaimer:', e);
-                                        }
-                                        setDisclaimerLoading(false);
-                                    }}
-                                    disabled={disclaimerLoading}
-                                    className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-md font-medium transition flex items-center gap-1"
-                                >
-                                    {disclaimerLoading ? (
-                                        <>
-                                            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                                            </svg>
-                                            Generating...
-                                        </>
-                                    ) : (
-                                        <>✨ Auto-generate for {config.language}</>
-                                    )}
-                                </button>
-                            </div>
-                            <textarea
-                                rows={3}
-                                placeholder="Enter custom disclaimer text or click 'Auto-generate' to create one based on the selected language/market..."
-                                value={config.responsibleGamblingDisclaimerText || ''}
-                                onChange={(e) => setConfig({ ...config, responsibleGamblingDisclaimerText: e.target.value })}
-                                className="w-full bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                                Leave empty to use default disclaimer, or customize/auto-generate for your market.
-                            </p>
                         </div>
                     )}
                 </div>
