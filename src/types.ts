@@ -109,6 +109,7 @@ export interface SectionWordCounts {
 
 export interface IncludeSections {
     platformInfosheet: boolean;
+    platformRatings: boolean;  // Individual 1-10 scores for each category
     prosCons: boolean;
     verdict: boolean;
     comparisonTable: boolean;

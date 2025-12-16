@@ -609,20 +609,20 @@ const App: React.FC = () => {
             }
         });
 
-        // Scoring Methodology Section
-        html += `<h2>Our Rating Methodology</h2>\n`;
-        html += `<p>We evaluate each platform across six key categories, with scores from 1-10:</p>\n`;
+        // Scoring Methodology Section (translated)
+        html += `<h2>${uiText.ratingMethodologyTitle}</h2>\n`;
+        html += `<p>${uiText.ratingMethodologyIntro}</p>\n`;
         if (useShortcodes) html += `[su_table responsive="yes"]\n`;
-        html += `<table>\n<thead>\n<tr><th>Score</th><th>Meaning</th><th>Criteria</th></tr>\n</thead>\n<tbody>\n`;
-        html += `<tr><td>9-10</td><td>Exceptional</td><td>Industry-leading, verified by multiple sources</td></tr>\n`;
-        html += `<tr><td>8</td><td>Excellent</td><td>Top-tier with minor room for improvement</td></tr>\n`;
-        html += `<tr><td>7</td><td>Very Good</td><td>Above average, meets high standards</td></tr>\n`;
-        html += `<tr><td>6</td><td>Good</td><td>Solid, meets expectations</td></tr>\n`;
-        html += `<tr><td>5</td><td>Adequate</td><td>Acceptable but has gaps</td></tr>\n`;
-        html += `<tr><td>1-4</td><td>Below Average</td><td>Significant issues noted</td></tr>\n`;
+        html += `<table>\n<thead>\n<tr><th>${uiText.ratingScore}</th><th>${uiText.ratingMeaning}</th><th>${uiText.ratingCriteria}</th></tr>\n</thead>\n<tbody>\n`;
+        html += `<tr><td>9-10</td><td>${uiText.ratingExceptional}</td><td>${uiText.ratingExceptionalCriteria}</td></tr>\n`;
+        html += `<tr><td>8</td><td>${uiText.ratingExcellent}</td><td>${uiText.ratingExcellentCriteria}</td></tr>\n`;
+        html += `<tr><td>7</td><td>${uiText.ratingVeryGood}</td><td>${uiText.ratingVeryGoodCriteria}</td></tr>\n`;
+        html += `<tr><td>6</td><td>${uiText.ratingGood}</td><td>${uiText.ratingGoodCriteria}</td></tr>\n`;
+        html += `<tr><td>5</td><td>${uiText.ratingAdequate}</td><td>${uiText.ratingAdequateCriteria}</td></tr>\n`;
+        html += `<tr><td>1-4</td><td>${uiText.ratingBelowAverage}</td><td>${uiText.ratingBelowAverageCriteria}</td></tr>\n`;
         html += `</tbody>\n</table>\n`;
         if (useShortcodes) html += `[/su_table]\n`;
-        html += `<p><strong>Star Rating Aggregation:</strong> The overall star rating (1-5 stars) is calculated by averaging all six category scores: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | Below 4.5 = ⭐</p>\n\n`;
+        html += `<p><strong>${uiText.starRatingAggregation}</strong></p>\n\n`;
 
         // FAQs
         if (generatedArticle.faqs.length > 0) {

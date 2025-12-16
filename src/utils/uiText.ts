@@ -31,6 +31,26 @@ export type UiText = {
 
     frequentlyAskedQuestions: string;
 
+    // Rating Methodology Section
+    ratingMethodologyTitle: string;
+    ratingMethodologyIntro: string;
+    ratingScore: string;
+    ratingMeaning: string;
+    ratingCriteria: string;
+    ratingExceptional: string;
+    ratingExcellent: string;
+    ratingVeryGood: string;
+    ratingGood: string;
+    ratingAdequate: string;
+    ratingBelowAverage: string;
+    ratingExceptionalCriteria: string;
+    ratingExcellentCriteria: string;
+    ratingVeryGoodCriteria: string;
+    ratingGoodCriteria: string;
+    ratingAdequateCriteria: string;
+    ratingBelowAverageCriteria: string;
+    starRatingAggregation: string;
+
     translateRatingCategory: (category: string) => string;
 
     visitPlatformCta: (platformName: string) => string;
@@ -70,6 +90,25 @@ export const getUiText = (language: Language): UiText => {
                 infosheetPaymentMethods: 'วิธีชำระเงิน',
 
                 frequentlyAskedQuestions: 'คำถามที่พบบ่อย',
+
+                ratingMethodologyTitle: 'วิธีการให้คะแนนของเรา',
+                ratingMethodologyIntro: 'เราประเมินแต่ละแพลตฟอร์มใน 6 หมวดหมู่หลัก โดยให้คะแนน 1-10:',
+                ratingScore: 'คะแนน',
+                ratingMeaning: 'ความหมาย',
+                ratingCriteria: 'เกณฑ์',
+                ratingExceptional: 'ยอดเยี่ยม',
+                ratingExcellent: 'ดีเยี่ยม',
+                ratingVeryGood: 'ดีมาก',
+                ratingGood: 'ดี',
+                ratingAdequate: 'พอใช้',
+                ratingBelowAverage: 'ต่ำกว่าค่าเฉลี่ย',
+                ratingExceptionalCriteria: 'ชั้นนำในอุตสาหกรรม ยืนยันจากหลายแหล่ง',
+                ratingExcellentCriteria: 'ระดับสูงสุด มีพื้นที่ปรับปรุงเล็กน้อย',
+                ratingVeryGoodCriteria: 'สูงกว่าค่าเฉลี่ย ผ่านมาตรฐานสูง',
+                ratingGoodCriteria: 'แข็งแกร่ง ตรงตามความคาดหวัง',
+                ratingAdequateCriteria: 'ยอมรับได้ แต่มีช่องว่าง',
+                ratingBelowAverageCriteria: 'พบปัญหาสำคัญ',
+                starRatingAggregation: 'การรวมคะแนนดาว: คะแนนดาวรวม (1-5 ดาว) คำนวณจากค่าเฉลี่ยของคะแนนทั้ง 6 หมวด: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | ต่ำกว่า 4.5 = ⭐',
 
                 translateRatingCategory: (category) => {
                     const c = category.trim().toLowerCase();
@@ -121,6 +160,25 @@ export const getUiText = (language: Language): UiText => {
 
                 frequentlyAskedQuestions: 'Câu hỏi thường gặp',
 
+                ratingMethodologyTitle: 'Phương pháp đánh giá của chúng tôi',
+                ratingMethodologyIntro: 'Chúng tôi đánh giá mỗi nền tảng theo 6 tiêu chí chính, với điểm từ 1-10:',
+                ratingScore: 'Điểm',
+                ratingMeaning: 'Ý nghĩa',
+                ratingCriteria: 'Tiêu chí',
+                ratingExceptional: 'Xuất sắc',
+                ratingExcellent: 'Tuyệt vời',
+                ratingVeryGood: 'Rất tốt',
+                ratingGood: 'Tốt',
+                ratingAdequate: 'Đạt yêu cầu',
+                ratingBelowAverage: 'Dưới trung bình',
+                ratingExceptionalCriteria: 'Hàng đầu ngành, được xác minh từ nhiều nguồn',
+                ratingExcellentCriteria: 'Cấp cao nhất với không gian cải thiện nhỏ',
+                ratingVeryGoodCriteria: 'Trên trung bình, đạt tiêu chuẩn cao',
+                ratingGoodCriteria: 'Ổn định, đáp ứng kỳ vọng',
+                ratingAdequateCriteria: 'Chấp nhận được nhưng có lỗ hổng',
+                ratingBelowAverageCriteria: 'Có vấn đề đáng chú ý',
+                starRatingAggregation: 'Tổng hợp xếp hạng sao: Xếp hạng sao tổng thể (1-5 sao) được tính bằng trung bình của 6 tiêu chí: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | Dưới 4.5 = ⭐',
+
                 translateRatingCategory: (category) => {
                     const c = category.trim().toLowerCase();
                     const map: Record<string, string> = {
@@ -170,6 +228,25 @@ export const getUiText = (language: Language): UiText => {
                 infosheetPaymentMethods: '支払い方法',
 
                 frequentlyAskedQuestions: 'よくある質問',
+
+                ratingMethodologyTitle: '評価方法',
+                ratingMethodologyIntro: '各プラットフォームを6つの主要カテゴリで評価し、1-10のスコアで採点します:',
+                ratingScore: 'スコア',
+                ratingMeaning: '評価',
+                ratingCriteria: '基準',
+                ratingExceptional: '卓越',
+                ratingExcellent: '優秀',
+                ratingVeryGood: '非常に良い',
+                ratingGood: '良い',
+                ratingAdequate: '適切',
+                ratingBelowAverage: '平均以下',
+                ratingExceptionalCriteria: '業界トップ、複数の情報源で確認済み',
+                ratingExcellentCriteria: '最高レベル、わずかな改善の余地あり',
+                ratingVeryGoodCriteria: '平均以上、高い基準を満たす',
+                ratingGoodCriteria: '堅実、期待に応える',
+                ratingAdequateCriteria: '許容範囲だがギャップあり',
+                ratingBelowAverageCriteria: '重大な問題が指摘される',
+                starRatingAggregation: 'スター評価集計: 総合スター評価（1-5つ星）は6カテゴリの平均で算出: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | 4.5未満 = ⭐',
 
                 translateRatingCategory: (category) => {
                     const c = category.trim().toLowerCase();
@@ -221,6 +298,25 @@ export const getUiText = (language: Language): UiText => {
 
                 frequentlyAskedQuestions: '자주 묻는 질문',
 
+                ratingMethodologyTitle: '평가 방법론',
+                ratingMethodologyIntro: '각 플랫폼을 6가지 핵심 카테고리에서 1-10점으로 평가합니다:',
+                ratingScore: '점수',
+                ratingMeaning: '의미',
+                ratingCriteria: '기준',
+                ratingExceptional: '탁월함',
+                ratingExcellent: '우수함',
+                ratingVeryGood: '매우 좋음',
+                ratingGood: '좋음',
+                ratingAdequate: '적절함',
+                ratingBelowAverage: '평균 이하',
+                ratingExceptionalCriteria: '업계 최고, 여러 출처에서 검증됨',
+                ratingExcellentCriteria: '최상위급, 약간의 개선 여지 있음',
+                ratingVeryGoodCriteria: '평균 이상, 높은 기준 충족',
+                ratingGoodCriteria: '견고함, 기대에 부응',
+                ratingAdequateCriteria: '수용 가능하나 부족한 부분 있음',
+                ratingBelowAverageCriteria: '중요한 문제 발견됨',
+                starRatingAggregation: '별점 집계: 전체 별점(1-5성)은 6개 카테고리 평균으로 계산: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | 4.5 미만 = ⭐',
+
                 translateRatingCategory: (category) => {
                     const c = category.trim().toLowerCase();
                     const map: Record<string, string> = {
@@ -271,6 +367,25 @@ export const getUiText = (language: Language): UiText => {
                 infosheetPaymentMethods: 'Payment Methods',
 
                 frequentlyAskedQuestions: 'Frequently Asked Questions',
+
+                ratingMethodologyTitle: 'Our Rating Methodology',
+                ratingMethodologyIntro: 'We evaluate each platform across six key categories, with scores from 1-10:',
+                ratingScore: 'Score',
+                ratingMeaning: 'Meaning',
+                ratingCriteria: 'Criteria',
+                ratingExceptional: 'Exceptional',
+                ratingExcellent: 'Excellent',
+                ratingVeryGood: 'Very Good',
+                ratingGood: 'Good',
+                ratingAdequate: 'Adequate',
+                ratingBelowAverage: 'Below Average',
+                ratingExceptionalCriteria: 'Industry-leading, verified by multiple sources',
+                ratingExcellentCriteria: 'Top-tier with minor room for improvement',
+                ratingVeryGoodCriteria: 'Above average, meets high standards',
+                ratingGoodCriteria: 'Solid, meets expectations',
+                ratingAdequateCriteria: 'Acceptable but has gaps',
+                ratingBelowAverageCriteria: 'Significant issues noted',
+                starRatingAggregation: 'Star Rating Aggregation: The overall star rating (1-5 stars) is calculated by averaging all six category scores: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | Below 4.5 = ⭐',
 
                 translateRatingCategory: (category) => category,
 

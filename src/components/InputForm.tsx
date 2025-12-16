@@ -727,6 +727,11 @@ export const InputForm: React.FC<InputFormProps> = ({
                                         label="Infosheet" 
                                     />
                                     <Toggle 
+                                        checked={config.includeSections.platformRatings} 
+                                        onChange={(v) => updateIncludeSection('platformRatings', v)} 
+                                        label="Ratings (1-10)" 
+                                    />
+                                    <Toggle 
                                         checked={config.includeSections.prosCons} 
                                         onChange={(v) => updateIncludeSection('prosCons', v)} 
                                         label="Pros/Cons" 

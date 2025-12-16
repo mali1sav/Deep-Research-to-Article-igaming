@@ -10,6 +10,7 @@ export const DEFAULT_SECTION_WORD_COUNTS: SectionWordCounts = {
 
 export const DEFAULT_INCLUDE_SECTIONS: IncludeSections = {
     platformInfosheet: true,
+    platformRatings: true,  // Individual 1-10 scores for each category
     prosCons: true,
     verdict: true,
     comparisonTable: true,
