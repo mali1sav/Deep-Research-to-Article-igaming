@@ -429,7 +429,7 @@ const App: React.FC = () => {
     };
 
     // Helper: Generate infosheet HTML with inline styles (for Download HTML)
-    const generateInfosheetHtml = (infosheet: any, uiText: any): string => {
+    const generateInfosheetHtmlStyled = (infosheet: any, uiText: any): string => {
         const rows = [
             [uiText.infosheetLicense, infosheet.license],
             [uiText.infosheetCountry, infosheet.country],
@@ -466,8 +466,8 @@ const App: React.FC = () => {
         return tableHtml;
     };
 
-    // Helper: Generate infosheet using WordPress Ultimate Shortcode [su_table]
-    const generateInfosheetShortcode = (infosheet: any, uiText: any): string => {
+    // Helper: Generate infosheet HTML (with or without shortcodes)
+    const generateInfosheetHtml = (infosheet: any, uiText: any, useShortcodes: boolean): string => {
         let sourceInfo = '';
         if (infosheet.dataSource || infosheet.retrievedAt) {
             sourceInfo = '<small>';
@@ -482,7 +482,7 @@ const App: React.FC = () => {
         
         let tableHtml = `<h4>${uiText.platformInformation}</h4>\n`;
         tableHtml += sourceInfo;
-        tableHtml += `[su_table responsive="yes"]\n`;
+        if (useShortcodes) tableHtml += `[su_table responsive="yes"]\n`;
         tableHtml += `<table>\n<tbody>\n`;
         tableHtml += `<tr><td><strong>${uiText.infosheetLicense}</strong></td><td>${infosheet.license}</td></tr>\n`;
         tableHtml += `<tr><td><strong>${uiText.infosheetCountry}</strong></td><td>${infosheet.country}</td></tr>\n`;
@@ -493,18 +493,23 @@ const App: React.FC = () => {
         tableHtml += `<tr><td><strong>${uiText.infosheetPaymentMethods}</strong></td><td>${Array.isArray(infosheet.paymentMethods) ? infosheet.paymentMethods.join(', ') : infosheet.paymentMethods || 'N/A'}</td></tr>\n`;
         tableHtml += `<tr><td><strong>KYC</strong></td><td>${infosheet.kycRequirement || 'Not specified'}</td></tr>\n`;
         tableHtml += `<tr style="background-color: #fef9c3;"><td><strong>🎁 Bonus</strong></td><td><strong>${infosheet.welcomeBonus || 'Not specified'}</strong></td></tr>\n`;
-        tableHtml += `</tbody>\n</table>\n[/su_table]\n\n`;
+        tableHtml += `</tbody>\n</table>\n`;
+        if (useShortcodes) tableHtml += `[/su_table]\n`;
+        tableHtml += `\n`;
         
         return tableHtml;
     };
 
-    // Clean HTML copy for WordPress using Ultimate Shortcode plugin
+    // Clean HTML copy for WordPress (with or without shortcodes)
     const handleCopyCleanHtml = useCallback(() => {
         if (!generatedArticle) return;
 
         const uiText = getUiText(config.language);
+        const useShortcodes = config.useShortcodes !== false; // default true
 
-        let html = `<!-- Article Content - WordPress Ultimate Shortcode Format -->\n`;
+        let html = useShortcodes 
+            ? `<!-- Article Content - WordPress Ultimate Shortcode Format -->\n`
+            : `<!-- Article Content - Plain HTML -->\n`;
         html += generatedArticle.intro + '\n\n';
         
         // Platform quick list
@@ -514,15 +519,17 @@ const App: React.FC = () => {
         });
         html += `</ol>\n\n`;
 
-        // Comparison table using [su_table]
+        // Comparison table
         if (generatedArticle.comparisonTable.length > 0) {
             html += `<h2>${uiText.platformComparison}</h2>\n`;
-            html += `[su_table responsive="yes"]\n`;
+            if (useShortcodes) html += `[su_table responsive="yes"]\n`;
             html += `<table>\n<thead>\n<tr><th>${uiText.tablePlatform}</th><th>${uiText.tableLicense}</th><th>${uiText.tableMinDeposit}</th><th>${uiText.tablePayoutSpeed}</th><th>${uiText.tableRating}</th></tr>\n</thead>\n<tbody>\n`;
             generatedArticle.comparisonTable.forEach(row => {
                 html += `<tr><td>${row.platformName}</td><td>${row.license}</td><td>${row.minDeposit}</td><td>${row.payoutSpeed}</td><td>${row.rating}</td></tr>\n`;
             });
-            html += `</tbody>\n</table>\n[/su_table]\n\n`;
+            html += `</tbody>\n</table>\n`;
+            if (useShortcodes) html += `[/su_table]\n`;
+            html += `\n`;
         }
 
         // Platform reviews
@@ -548,51 +555,64 @@ const App: React.FC = () => {
                 html += `\n`;
             }
             
-            // Infosheet using [su_table]
+            // Infosheet (with or without shortcodes)
             if (config.includeSections.platformInfosheet) {
-                html += generateInfosheetShortcode(review.infosheet, uiText);
+                html += generateInfosheetHtml(review.infosheet, uiText, useShortcodes);
             }
             
-            // Pros and Cons using [su_row][su_column]
+            // Pros and Cons
             if (config.includeSections.prosCons) {
-                html += `[su_row]\n`;
-                html += `[su_column size="1/2"]\n`;
-                html += `<h4 style="color: #166534;">✓ ${uiText.pros}</h4>\n`;
-                html += `<ul>\n`;
+                if (useShortcodes) {
+                    html += `[su_row]\n[su_column size="1/2"]\n`;
+                } else {
+                    html += `<div style="display: flex; gap: 24px;">\n<div style="flex: 1;">\n`;
+                }
+                html += `<h4 style="color: #166534;">✓ ${uiText.pros}</h4>\n<ul>\n`;
                 review.pros.forEach(p => {
                     html += `<li><span style="color: #22c55e;">✓</span> ${p}</li>\n`;
                 });
                 html += `</ul>\n`;
-                html += `[/su_column]\n`;
-                html += `[su_column size="1/2"]\n`;
-                html += `<h4 style="color: #991b1b;">✗ ${uiText.cons}</h4>\n`;
-                html += `<ul>\n`;
+                if (useShortcodes) {
+                    html += `[/su_column]\n[su_column size="1/2"]\n`;
+                } else {
+                    html += `</div>\n<div style="flex: 1;">\n`;
+                }
+                html += `<h4 style="color: #991b1b;">✗ ${uiText.cons}</h4>\n<ul>\n`;
                 review.cons.forEach(c => {
                     html += `<li><span style="color: #ef4444;">✗</span> ${c}</li>\n`;
                 });
                 html += `</ul>\n`;
-                html += `[/su_column]\n`;
-                html += `[/su_row]\n\n`;
+                if (useShortcodes) {
+                    html += `[/su_column]\n[/su_row]\n\n`;
+                } else {
+                    html += `</div>\n</div>\n\n`;
+                }
             }
             
-            // Verdict using [su_highlight]
+            // Verdict
             if (config.includeSections.verdict) {
                 html += `<h3>${uiText.ourVerdict}</h3>\n`;
-                html += `[su_highlight background="#f3f4f6" color="#111827"]\n`;
-                html += `${review.verdict}\n`;
-                html += `[/su_highlight]\n\n`;
+                if (useShortcodes) {
+                    html += `[su_highlight background="#f3f4f6" color="#111827"]\n${review.verdict}\n[/su_highlight]\n\n`;
+                } else {
+                    html += `<div style="background-color: #f3f4f6; padding: 16px; border-radius: 8px;">${review.verdict}</div>\n\n`;
+                }
             }
             
-            // CTA Button using [su_button]
+            // CTA Button
             if (review.affiliateUrl) {
-                html += `[su_button url="${review.affiliateUrl}" target="blank" style="flat" background="#22c55e" color="#ffffff" size="6" center="yes" radius="5"]${uiText.visitPlatformCta(review.platformName)}[/su_button]\n\n`;
+                if (useShortcodes) {
+                    html += `[su_button url="${review.affiliateUrl}" target="blank" style="flat" background="#22c55e" color="#ffffff" size="6" center="yes" radius="5"]${uiText.visitPlatformCta(review.platformName)}[/su_button]\n\n`;
+                } else {
+                    html += `<p style="text-align: center;"><a href="${review.affiliateUrl}" target="_blank" style="display: inline-block; background-color: #22c55e; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">${uiText.visitPlatformCta(review.platformName)}</a></p>\n\n`;
+                }
             }
         });
 
-        // Scoring Methodology Section (before FAQs) using [su_table]
+        // Scoring Methodology Section
         html += `<h2>Our Rating Methodology</h2>\n`;
         html += `<p>We evaluate each platform across six key categories, with scores from 1-10:</p>\n`;
-        html += `[su_table responsive="yes"]\n`;
+        if (useShortcodes) html += `[su_table responsive="yes"]\n`;
         html += `<table>\n<thead>\n<tr><th>Score</th><th>Meaning</th><th>Criteria</th></tr>\n</thead>\n<tbody>\n`;
         html += `<tr><td>9-10</td><td>Exceptional</td><td>Industry-leading, verified by multiple sources</td></tr>\n`;
         html += `<tr><td>8</td><td>Excellent</td><td>Top-tier with minor room for improvement</td></tr>\n`;
@@ -600,32 +620,42 @@ const App: React.FC = () => {
         html += `<tr><td>6</td><td>Good</td><td>Solid, meets expectations</td></tr>\n`;
         html += `<tr><td>5</td><td>Adequate</td><td>Acceptable but has gaps</td></tr>\n`;
         html += `<tr><td>1-4</td><td>Below Average</td><td>Significant issues noted</td></tr>\n`;
-        html += `</tbody>\n</table>\n[/su_table]\n`;
+        html += `</tbody>\n</table>\n`;
+        if (useShortcodes) html += `[/su_table]\n`;
         html += `<p><strong>Star Rating Aggregation:</strong> The overall star rating (1-5 stars) is calculated by averaging all six category scores: 9.0-10 = ⭐⭐⭐⭐⭐ | 7.5-8.9 = ⭐⭐⭐⭐ | 6.0-7.4 = ⭐⭐⭐ | 4.5-5.9 = ⭐⭐ | Below 4.5 = ⭐</p>\n\n`;
 
-        // FAQs using [Q1][A1] format
+        // FAQs
         if (generatedArticle.faqs.length > 0) {
             html += `<h2>${uiText.frequentlyAskedQuestions}</h2>\n`;
-            generatedArticle.faqs.forEach((faq, index) => {
-                const num = index + 1;
-                html += `[Q${num}]${faq.question}[/Q${num}]\n`;
-                html += `[A${num}]${faq.answer}[/A${num}]\n`;
-            });
+            if (useShortcodes) {
+                generatedArticle.faqs.forEach((faq, index) => {
+                    const num = index + 1;
+                    html += `[Q${num}]${faq.question}[/Q${num}]\n`;
+                    html += `[A${num}]${faq.answer}[/A${num}]\n`;
+                });
+            } else {
+                generatedArticle.faqs.forEach((faq) => {
+                    html += `<details><summary><strong>${faq.question}</strong></summary>\n<p>${faq.answer}</p>\n</details>\n`;
+                });
+            }
             html += `\n`;
         }
 
-        // Responsible Gambling Disclaimer using [su_note]
+        // Responsible Gambling Disclaimer
         if (config.includeResponsibleGamblingDisclaimer) {
             const disclaimerText = config.responsibleGamblingDisclaimerText || 
                 'Gambling involves risk and should be done responsibly. Please only gamble with money you can afford to lose. If you or someone you know has a gambling problem, please seek help from professional organizations. Many jurisdictions have support services available 24/7. You must be of legal gambling age in your jurisdiction to participate in online gambling activities.';
-            html += `[su_note note_color="#fef3c7" text_color="#78350f"]\n`;
-            html += `<strong>⚠️ Responsible Gambling</strong>\n`;
-            html += `${disclaimerText}\n`;
-            html += `[/su_note]\n`;
+            if (useShortcodes) {
+                html += `[su_note note_color="#fef3c7" text_color="#78350f"]\n`;
+                html += `<strong>⚠️ Responsible Gambling</strong>\n${disclaimerText}\n[/su_note]\n`;
+            } else {
+                html += `<div style="background-color: #fef3c7; color: #78350f; padding: 16px; border-radius: 8px; margin-top: 24px;">\n`;
+                html += `<strong>⚠️ Responsible Gambling</strong><br>\n${disclaimerText}\n</div>\n`;
+            }
         }
 
         navigator.clipboard.writeText(html);
-    }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, config.includeSections, generateInfosheetShortcode]);
+    }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, config.includeSections, config.useShortcodes]);
 
     const handleDownloadHtml = useCallback(() => {
         if (!generatedArticle) return;
@@ -670,7 +700,7 @@ const App: React.FC = () => {
             
             // Infosheet (if enabled)
             if (config.includeSections.platformInfosheet) {
-                articleContent += generateInfosheetHtml(review.infosheet, uiText);
+                articleContent += generateInfosheetHtmlStyled(review.infosheet, uiText);
             }
             
             // Pros and Cons (if enabled)
@@ -762,7 +792,7 @@ const App: React.FC = () => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(href);
-    }, [generatedArticle, config.language, config.includeSections, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, generateRatingBarHtml, generateInfosheetHtml]);
+    }, [generatedArticle, config.language, config.includeSections, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, generateRatingBarHtml, generateInfosheetHtmlStyled]);
 
     const isLoading = workflowPhase !== 'idle' && workflowPhase !== 'completed' && workflowPhase !== 'error';
     const uiText = getUiText(config.language);

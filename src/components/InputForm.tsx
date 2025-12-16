@@ -738,6 +738,23 @@ export const InputForm: React.FC<InputFormProps> = ({
                                     />
                                 </div>
                             </div>
+
+                            <div className="pt-3 border-t border-gray-100">
+                                <h4 className="text-xs font-medium text-gray-600 mb-2">Output format:</h4>
+                                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                    <Toggle 
+                                        checked={config.useShortcodes !== false} 
+                                        onChange={(v) => setConfig({ ...config, useShortcodes: v })} 
+                                        label="Use WordPress Shortcodes" 
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    {config.useShortcodes !== false 
+                                        ? 'Uses [su_table], [su_row], [su_button] etc. for WordPress Ultimate Shortcode plugin'
+                                        : 'Plain HTML without shortcodes'
+                                    }
+                                </p>
+                            </div>
                         </div>
                     )}
                 </div>

@@ -163,6 +163,8 @@ export interface ArticleConfig {
     serpKeyword?: string;  // Keyword to analyze competitors for
     // Review Only mode - generates only platform reviews without intro, comparison, FAQs
     reviewOnlyMode?: boolean;
+    // Output format options
+    useShortcodes?: boolean;  // Use WordPress Ultimate Shortcode format (default: true)
 }
 
 // --- Template Types ---
