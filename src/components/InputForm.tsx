@@ -52,6 +52,7 @@ interface InputFormProps {
     config: ArticleConfig;
     setConfig: (config: ArticleConfig) => void;
     onClearAll: () => void;
+    onClearResearchCache?: () => void;
     onSubmit: () => void;
     isLoading: boolean;
     // SERP Analysis props
@@ -64,6 +65,7 @@ export const InputForm: React.FC<InputFormProps> = ({
     config, 
     setConfig, 
     onClearAll,
+    onClearResearchCache,
     onSubmit, 
     isLoading,
     serpCompetitors = [],
@@ -256,13 +258,25 @@ export const InputForm: React.FC<InputFormProps> = ({
                         </span>
                     </label>
                 </div>
-                <button
-                    type="button"
-                    onClick={onClearAll}
-                    className="px-4 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition font-medium"
-                >
-                    🗑️ Clear All
-                </button>
+                <div className="flex gap-2">
+                    {onClearResearchCache && (
+                        <button
+                            type="button"
+                            onClick={onClearResearchCache}
+                            className="px-3 py-2 text-sm text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-md transition font-medium"
+                            title="Clear cached research data (forces fresh API calls)"
+                        >
+                            🔄 Clear Cache
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={onClearAll}
+                        className="px-4 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition font-medium"
+                    >
+                        🗑️ Clear All
+                    </button>
+                </div>
             </div>
 
             {/* Review Only Mode Warning */}

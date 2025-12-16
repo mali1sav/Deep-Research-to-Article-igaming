@@ -10,7 +10,9 @@ import {
     generateFullArticle,
     analyzeSerpCompetitors,
     generateReviewsOnly,
-    SerpCompetitor
+    SerpCompetitor,
+    clearResearchCache,
+    getCachedPlatformNames
 } from './services/platformResearchService';
 import { 
     ArticleConfig, 
@@ -226,6 +228,12 @@ const App: React.FC = () => {
         };
         setConfig(defaultConfig);
         localStorage.removeItem(CONFIG_STORAGE_KEY);
+        clearResearchCache(); // Also clear research cache
+    }, []);
+
+    const handleClearResearchCache = useCallback(() => {
+        clearResearchCache();
+        alert('Research cache cleared. Next research will fetch fresh data.');
     }, []);
 
     const resetState = () => {
@@ -315,13 +323,14 @@ const App: React.FC = () => {
                 setSerpAnalysisLoading(false);
             }
 
-            // Research all platforms in parallel
+            // Research all platforms (uses cache for previously researched platforms)
             setLoadingMessage('Researching platforms...');
             const researchResults = await researchAllPlatforms(
                 config.platforms.map(p => p.name),
                 config.vertical || 'gambling',
-                (completed, total, platformName) => {
-                    setLoadingMessage(`Researched ${platformName} (${completed}/${total})`);
+                (completed, total, platformName, fromCache) => {
+                    const cacheIndicator = fromCache ? ' (cached)' : '';
+                    setLoadingMessage(`Researched ${platformName}${cacheIndicator} (${completed}/${total})`);
                     setPlatformResearch(prev => prev.map(p => 
                         p.name === platformName 
                             ? { ...p, researchStatus: 'completed' }
@@ -832,6 +841,7 @@ Image Alt Text: ${seo.imageAltText}
                         config={config}
                         setConfig={setConfig}
                         onClearAll={handleClearAll}
+                        onClearResearchCache={handleClearResearchCache}
                         onSubmit={handleStartResearch}
                         isLoading={isLoading}
                         serpCompetitors={serpCompetitors}

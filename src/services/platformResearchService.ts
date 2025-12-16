@@ -36,8 +36,8 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function withRetry<T>(
     fn: () => Promise<T>,
-    maxRetries: number = 3,
-    baseDelayMs: number = 2000
+    maxRetries: number = 5,  // Increased from 3 to 5 for 503 errors
+    baseDelayMs: number = 3000  // Increased from 2000 to 3000
 ): Promise<T> {
     let lastError: Error | null = null;
     
@@ -64,7 +64,10 @@ async function withRetry<T>(
                 throw error;
             }
             
-            const delayMs = baseDelayMs * Math.pow(2, attempt);
+            // Longer delays for 503 overloaded errors
+            const is503 = message.includes('503') || lower.includes('overloaded');
+            const multiplier = is503 ? 3 : 2;  // 3x backoff for 503, 2x for others
+            const delayMs = baseDelayMs * Math.pow(multiplier, attempt);
             console.warn(`API call failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delayMs}ms...`, error.message);
             await sleep(delayMs);
         }
@@ -525,41 +528,127 @@ export const researchPlatform = async (platformName: string, vertical: VerticalT
     }
 };
 
+// --- Research Cache (localStorage) ---
+const RESEARCH_CACHE_KEY = 'platform_research_cache';
+const CACHE_EXPIRY_HOURS = 24; // Cache valid for 24 hours
+
+interface CachedResearch {
+    data: PlatformResearch;
+    timestamp: number;
+    vertical: VerticalType;
+}
+
+interface ResearchCache {
+    [platformName: string]: CachedResearch;
+}
+
+const getResearchCache = (): ResearchCache => {
+    try {
+        const cached = localStorage.getItem(RESEARCH_CACHE_KEY);
+        return cached ? JSON.parse(cached) : {};
+    } catch {
+        return {};
+    }
+};
+
+const saveToResearchCache = (platformName: string, data: PlatformResearch, vertical: VerticalType): void => {
+    try {
+        const cache = getResearchCache();
+        cache[platformName.toLowerCase()] = {
+            data,
+            timestamp: Date.now(),
+            vertical
+        };
+        localStorage.setItem(RESEARCH_CACHE_KEY, JSON.stringify(cache));
+    } catch (error) {
+        console.warn('Failed to save research to cache:', error);
+    }
+};
+
+const getFromResearchCache = (platformName: string, vertical: VerticalType): PlatformResearch | null => {
+    try {
+        const cache = getResearchCache();
+        const cached = cache[platformName.toLowerCase()];
+        
+        if (!cached) return null;
+        
+        // Check if cache is expired
+        const ageHours = (Date.now() - cached.timestamp) / (1000 * 60 * 60);
+        if (ageHours > CACHE_EXPIRY_HOURS) return null;
+        
+        // Check if vertical matches
+        if (cached.vertical !== vertical) return null;
+        
+        // Only return if research was successful
+        if (cached.data.researchStatus === 'error') return null;
+        
+        return cached.data;
+    } catch {
+        return null;
+    }
+};
+
+export const clearResearchCache = (): void => {
+    try {
+        localStorage.removeItem(RESEARCH_CACHE_KEY);
+    } catch (error) {
+        console.warn('Failed to clear research cache:', error);
+    }
+};
+
+export const getCachedPlatformNames = (vertical: VerticalType): string[] => {
+    const cache = getResearchCache();
+    return Object.entries(cache)
+        .filter(([_, cached]) => {
+            const ageHours = (Date.now() - cached.timestamp) / (1000 * 60 * 60);
+            return ageHours <= CACHE_EXPIRY_HOURS && 
+                   cached.vertical === vertical && 
+                   cached.data.researchStatus !== 'error';
+        })
+        .map(([name]) => name);
+};
+
 /**
  * Research platforms with controlled concurrency to avoid API overload.
- * Processes in batches of 3 with delays between batches.
- * Recommended: 5-7 platforms for best balance of comparison quality and stability.
+ * Uses localStorage cache to persist completed research between errors.
+ * Processes sequentially with delays to minimize 503 errors.
  */
 export const researchAllPlatforms = async (
     platformNames: string[],
     vertical: VerticalType = 'gambling',
-    onProgress?: (completed: number, total: number, platformName: string) => void
+    onProgress?: (completed: number, total: number, platformName: string, fromCache?: boolean) => void
 ): Promise<PlatformResearch[]> => {
     const total = platformNames.length;
     let completed = 0;
     const results: PlatformResearch[] = [];
     
-    // Process in batches of 3 to avoid API overload
-    const BATCH_SIZE = 3;
-    const BATCH_DELAY_MS = 2000; // 2 second delay between batches
+    // Sequential processing with delays to avoid 503 errors
+    const DELAY_BETWEEN_REQUESTS_MS = 3000; // 3 second delay between each request
     
-    for (let i = 0; i < platformNames.length; i += BATCH_SIZE) {
-        const batch = platformNames.slice(i, i + BATCH_SIZE);
+    for (const name of platformNames) {
+        // Check cache first
+        const cachedResult = getFromResearchCache(name, vertical);
         
-        // Process batch in parallel
-        const batchPromises = batch.map(async (name) => {
-            const result = await researchPlatform(name, vertical);
+        if (cachedResult) {
+            console.log(`Using cached research for ${name}`);
+            results.push(cachedResult);
             completed++;
-            onProgress?.(completed, total, name);
-            return result;
-        });
-        
-        const batchResults = await Promise.all(batchPromises);
-        results.push(...batchResults);
-        
-        // Add delay between batches (except for the last batch)
-        if (i + BATCH_SIZE < platformNames.length) {
-            await sleep(BATCH_DELAY_MS);
+            onProgress?.(completed, total, name, true);
+        } else {
+            // Research and cache the result
+            const result = await researchPlatform(name, vertical);
+            
+            // Save to cache (even errors, but they won't be retrieved)
+            saveToResearchCache(name, result, vertical);
+            
+            results.push(result);
+            completed++;
+            onProgress?.(completed, total, name, false);
+            
+            // Add delay before next request (except for the last one)
+            if (completed < total) {
+                await sleep(DELAY_BETWEEN_REQUESTS_MS);
+            }
         }
     }
     
