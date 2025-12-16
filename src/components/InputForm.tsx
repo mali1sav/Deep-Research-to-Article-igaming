@@ -12,7 +12,7 @@ import {
     VerticalType
 } from '../types';
 import { getVerticalConfig, getVerticalOptions } from '../config/verticals';
-import { generateResponsibleGamblingDisclaimer } from '../services/platformResearchService';
+import { generateResponsibleGamblingDisclaimer, isPlatformCached, getCacheInfo } from '../services/platformResearchService';
 
 // Icons
 const PlusIcon = () => (
@@ -667,28 +667,41 @@ export const InputForm: React.FC<InputFormProps> = ({
 
                     {config.platforms.length > 0 && (
                         <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
-                            {config.platforms.map((platform, index) => (
-                                <div key={index} className="flex items-center gap-3 p-3">
-                                    <span className="text-sm font-medium text-gray-500 w-6">{index + 1}.</span>
-                                    <span className="font-medium text-gray-900 min-w-[120px]">{platform.name}</span>
-                                    <input
-                                        type="text"
-                                        placeholder="Affiliate URL (optional)"
-                                        value={platform.affiliateUrl || ''}
-                                        onChange={(e) => updatePlatformAffiliateUrl(index, e.target.value)}
-                                        className="flex-1 bg-gray-50 border border-gray-200 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => removePlatform(index)}
-                                        aria-label={`Remove ${platform.name}`}
-                                        title={`Remove ${platform.name}`}
-                                        className="p-2 text-red-500 hover:bg-red-50 rounded-md transition"
-                                    >
-                                        <TrashIcon />
-                                    </button>
-                                </div>
-                            ))}
+                            {config.platforms.map((platform, index) => {
+                                const isCached = isPlatformCached(platform.name, config.vertical || 'gambling');
+                                return (
+                                    <div key={index} className="flex items-center gap-3 p-3">
+                                        <span className="text-sm font-medium text-gray-500 w-6">{index + 1}.</span>
+                                        <span className="font-medium text-gray-900 min-w-[120px] flex items-center gap-2">
+                                            {platform.name}
+                                            {isCached && (
+                                                <span 
+                                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
+                                                    title="Research data cached - will load instantly"
+                                                >
+                                                    ✓ cached
+                                                </span>
+                                            )}
+                                        </span>
+                                        <input
+                                            type="text"
+                                            placeholder="Affiliate URL (optional)"
+                                            value={platform.affiliateUrl || ''}
+                                            onChange={(e) => updatePlatformAffiliateUrl(index, e.target.value)}
+                                            className="flex-1 bg-gray-50 border border-gray-200 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => removePlatform(index)}
+                                            aria-label={`Remove ${platform.name}`}
+                                            title={`Remove ${platform.name}`}
+                                            className="p-2 text-red-500 hover:bg-red-50 rounded-md transition"
+                                        >
+                                            <TrashIcon />
+                                        </button>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
 
@@ -699,6 +712,36 @@ export const InputForm: React.FC<InputFormProps> = ({
                     <p className="text-xs text-blue-600 flex items-center">
                         💡 Recommended: <strong className="mx-1">5-7 platforms</strong> for useful comparison tables. Fewer = weak comparison. More = slower processing.
                     </p>
+
+                    {/* Cache Summary */}
+                    {(() => {
+                        const cachedCount = config.platforms.filter(p => 
+                            isPlatformCached(p.name, config.vertical || 'gambling')
+                        ).length;
+                        const uncachedCount = config.platforms.length - cachedCount;
+                        
+                        if (config.platforms.length > 0 && cachedCount > 0) {
+                            return (
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-3">
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <span className="text-green-600 font-medium">📦 Research Cache:</span>
+                                        <span className="text-green-800">
+                                            <strong>{cachedCount}</strong> of {config.platforms.length} platforms cached
+                                            {uncachedCount > 0 && (
+                                                <span className="text-gray-600"> • {uncachedCount} will be researched</span>
+                                            )}
+                                        </span>
+                                    </div>
+                                    {uncachedCount === 0 && (
+                                        <p className="text-xs text-green-600 mt-1">
+                                            ✨ All platforms are cached! Research will complete instantly.
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        }
+                        return null;
+                    })()}
                 </div>
 
                 {/* Review Settings (collapsible within same card) */}

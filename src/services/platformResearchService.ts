@@ -608,6 +608,26 @@ export const getCachedPlatformNames = (vertical: VerticalType): string[] => {
         .map(([name]) => name);
 };
 
+export const isPlatformCached = (platformName: string, vertical: VerticalType): boolean => {
+    const cachedNames = getCachedPlatformNames(vertical);
+    return cachedNames.includes(platformName.toLowerCase());
+};
+
+export const getCacheInfo = (vertical: VerticalType): { name: string; cachedAt: Date }[] => {
+    const cache = getResearchCache();
+    return Object.entries(cache)
+        .filter(([_, cached]) => {
+            const ageHours = (Date.now() - cached.timestamp) / (1000 * 60 * 60);
+            return ageHours <= CACHE_EXPIRY_HOURS && 
+                   cached.vertical === vertical && 
+                   cached.data.researchStatus !== 'error';
+        })
+        .map(([name, cached]) => ({
+            name: cached.data.name || name,
+            cachedAt: new Date(cached.timestamp)
+        }));
+};
+
 /**
  * Research platforms with controlled concurrency to avoid API overload.
  * Uses localStorage cache to persist completed research between errors.
