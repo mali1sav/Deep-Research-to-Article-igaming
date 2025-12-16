@@ -42,9 +42,9 @@ export interface TargetKeyword {
 // --- Citation Types ---
 export interface Citation {
     title: string;
-    vertexUrl: string;        // Original Vertex AI redirect URL
-    googleSearchUrl: string;  // Backup: Google search with title as query
-    domain: string;           // Source domain for display
+    sourceUrl: string;        // Actual source URL from research
+    googleSearchUrl: string;  // Fallback: Google search if no URL found
+    domain: string;           // Source domain for display (without www)
 }
 
 // --- Platform Types ---

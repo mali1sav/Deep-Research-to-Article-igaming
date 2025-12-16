@@ -147,18 +147,21 @@ export const extractCitationsFromSources = (sources: string[]): Citation[] => {
         .filter(Boolean)
         .map(source => {
             if (isProbablyUrl(source)) {
-                const domain = tryGetDomainFromUrl(source) || 'source';
+                // Extract domain without www
+                let domain = tryGetDomainFromUrl(source) || 'source';
+                domain = domain.replace(/^www\./, '');
                 return {
                     title: source,
-                    vertexUrl: source,
+                    sourceUrl: source,
                     googleSearchUrl: buildGoogleSearchUrl(source),
                     domain
                 };
             }
 
+            // Non-URL source - use Google search as fallback
             return {
                 title: source,
-                vertexUrl: buildGoogleSearchUrl(source),
+                sourceUrl: buildGoogleSearchUrl(source),
                 googleSearchUrl: buildGoogleSearchUrl(source),
                 domain: 'research'
             };
@@ -168,7 +171,8 @@ export const extractCitationsFromSources = (sources: string[]): Citation[] => {
 export const deduplicateCitations = (citations: Citation[]): Citation[] => {
     const seen = new Set<string>();
     return citations.filter(c => {
-        const key = c.title.toLowerCase();
+        // Deduplicate by domain to ensure each source appears only once
+        const key = c.domain.toLowerCase();
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -199,18 +203,18 @@ const getLanguageInstruction = (
 const buildCitationsIndexBlock = (citations: Citation[]): string => {
     if (!citations || citations.length === 0) return 'No citations provided.';
     return citations
-        .map((c, i) => `${i + 1}. ${c.title} (${c.vertexUrl})`)
+        .map((c, i) => `${i + 1}. ${c.domain} - ${c.sourceUrl}`)
         .join('\n');
 };
 
 const IN_TEXT_CITATION_RULES_HTML = `
 **Citation Format:**
-Add in-text citations INSIDE paragraphs (not in a separate list).
-Use the DOMAIN NAME as the citation text, NOT numbered references like [1] or [2].
-Format: <a href="FULL_URL" target="_blank" rel="noopener noreferrer">(domain.com)</a>
-Example: According to recent data <a href="https://www.askgamblers.com/review" target="_blank" rel="noopener noreferrer">(askgamblers.com)</a>
-Place citations at the end of relevant sentences within the paragraph.
-Use ONLY the URLs from the citations index below.
+- Add in-text citations INSIDE paragraphs (not in a separate list)
+- Use format: <a href="FULL_URL" target="_blank" rel="noopener noreferrer">(domain.com)</a>
+- Example: Licensed by Curacao eGaming <a href="https://curacaoegaming.lc/verify" target="_blank" rel="noopener noreferrer">(curacaoegaming.lc)</a>
+- Each source should appear ONLY ONCE in the entire article
+- Only cite credibility-important info (licenses, company details, bonuses) - NOT generic knowledge
+- Use ONLY the URLs from the citations index below
 `;
 
 // --- Tone, SEO, and Keyword Helpers ---
@@ -282,8 +286,8 @@ Use format: <a href="URL">anchor text</a>
 IMPORTANT: Each link should appear exactly 1 time total across all sections.\n`;
 };
 
-const buildCitationAnchor = (citation: Citation, index: number): string => {
-    return `<a href="${citation.vertexUrl}" target="_blank" rel="noopener noreferrer">[${index + 1}]</a>`;
+const buildCitationAnchor = (citation: Citation): string => {
+    return `<a href="${citation.sourceUrl}" target="_blank" rel="noopener noreferrer">(${citation.domain})</a>`;
 };
 
 const ensureInTextCitations = (html: string, citations: Citation[], minCount: number): string => {
@@ -294,7 +298,7 @@ const ensureInTextCitations = (html: string, citations: Citation[], minCount: nu
     if (linkCount >= minCount) return html;
 
     const needed = Math.min(citations.length, minCount - linkCount);
-    const anchors = Array.from({ length: needed }, (_, i) => buildCitationAnchor(citations[i], i)).join(' ');
+    const anchors = Array.from({ length: needed }, (_, i) => buildCitationAnchor(citations[i])).join(' ');
     if (!anchors) return html;
 
     // Prefer to place citations inside the last paragraph tag when possible.
@@ -399,7 +403,12 @@ Find and report REAL DATA for:
 IMPORTANT:
 - Search thoroughly and provide actual data you find
 - If you cannot find specific information, state "Not publicly disclosed"
-- Include sources where you found the information
+- Include FULL SOURCE URLs where you found the information (not search URLs)
+
+CITATION RULES:
+- Provide actual source page URLs (e.g., https://example.com/page)
+- Only cite credibility-important info (licenses, company details, bonuses) - NOT generic knowledge
+- Maximum 3-5 high-quality sources per platform
 
 Format your response as JSON:
 {
@@ -418,7 +427,7 @@ Format your response as JSON:
     "keyFeatures": ["..."],
     "pros": ["..."],
     "cons": ["..."],
-    "sources": ["URLs or source names"]
+    "sources": ["https://full-url-to-source-page.com/path"]
 }`;
 
     try {
