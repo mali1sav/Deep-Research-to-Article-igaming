@@ -108,6 +108,9 @@ export const cryptoConfig: VerticalConfig = {
     ],
     
     researchContext: 'You are a cryptocurrency industry research analyst. Research the crypto exchange/wallet/DeFi platform',
+    searchSuffix: 'cryptocurrency crypto platform',  // Helps disambiguate platform names from gambling sites
+    
+    comparisonColumns: ['Regulation', 'Trading Fees', 'Supported Coins', 'Rating'],
     
     disclaimerTitle: '⚠️ Cryptocurrency Risk Warning',
     disclaimerText: 'Cryptocurrency investments are highly volatile and risky. You could lose some or all of your investment. Past performance is not indicative of future results. Only invest what you can afford to lose. This content is for informational purposes only and does not constitute financial advice. Always do your own research (DYOR) before making any investment decisions. Cryptocurrency may not be regulated in your jurisdiction.',

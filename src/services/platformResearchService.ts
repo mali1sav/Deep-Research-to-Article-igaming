@@ -404,7 +404,14 @@ const buildResearchPrompt = (platformName: string, verticalConfig: VerticalConfi
         .map(field => `        "${field.key}": ${field.type === 'array' ? '["..."]' : '"..."'}`)
         .join(',\n');
 
+    // Use searchSuffix to disambiguate platform names
+    const searchQuery = `${platformName} ${verticalConfig.searchSuffix}`;
+
     return `${verticalConfig.researchContext} "${platformName}" and provide comprehensive, factual information.
+
+**CRITICAL SEARCH CONTEXT**: You are researching "${platformName}" as a ${verticalConfig.name.toLowerCase()} platform. 
+Search for: "${searchQuery}"
+DO NOT confuse this with platforms in other industries (e.g., if researching crypto, do NOT find gambling/casino sites).
 
 Find and report REAL DATA for:
 ${fieldsList}
@@ -415,12 +422,16 @@ ${verticalConfig.infosheetFields.length + 3}. **Cons**: Genuine disadvantages ba
 IMPORTANT:
 - Search thoroughly and provide actual data you find
 - If you cannot find specific information, state "Not publicly disclosed"
-- Include FULL SOURCE URLs where you found the information (not search URLs)
+- If you cannot find this platform as a ${verticalConfig.name.toLowerCase()} platform, state "Platform not found in this industry"
 
-CITATION RULES:
-- Provide actual source page URLs (e.g., https://example.com/page)
-- Only cite credibility-important info - NOT generic knowledge
-- Maximum 3-5 high-quality sources per ${verticalConfig.platformTerm}
+**STRICT CITATION RULES - CRITICAL**:
+- ONLY include URLs that you actually visited and verified exist
+- DO NOT hallucinate or make up URLs
+- DO NOT include URLs from search results pages (no google.com URLs)
+- Prefer official platform websites (e.g., ${platformName.toLowerCase()}.com) and reputable review sites
+- If you cannot verify a URL exists, DO NOT include it
+- Maximum 3-5 high-quality, verified sources per ${verticalConfig.platformTerm}
+- If no reliable sources found, return empty sources array - do NOT make up URLs
 
 Format your response as JSON:
 {
@@ -431,7 +442,7 @@ ${infosheetJson}
     "keyFeatures": ["..."],
     "pros": ["..."],
     "cons": ["..."],
-    "sources": ["https://full-url-to-source-page.com/path"]
+    "sources": ["https://verified-url-you-actually-visited.com/path"]
 }`;
 };
 
@@ -830,51 +841,83 @@ const getNoDataMessage = (): string => {
 
 export const generateComparisonTable = async (
     platformResearch: PlatformResearch[],
-    language: Language
+    language: Language,
+    vertical: VerticalType = 'gambling'
 ): Promise<ComparisonTableRow[]> => {
     const noDataMsg = getNoDataMessage();
+    const verticalConfig = getVerticalConfig(vertical);
     
+    // Build vertical-specific data based on infosheet fields
     const researchData = platformResearch.map(p => {
         const hasData = hasValidResearchData(p);
-        return {
+        const info = p.infosheet as Record<string, any>;
+        
+        // Get first 3 infosheet fields for comparison columns
+        const comparisonData: Record<string, any> = {
             name: p.name,
-            hasResearchData: hasData,
-            license: hasData ? p.infosheet.license : noDataMsg,
-            minDeposit: hasData ? p.infosheet.minDeposit : noDataMsg,
-            payoutSpeed: hasData ? p.infosheet.payoutSpeed : noDataMsg
+            hasResearchData: hasData
         };
+        
+        // Add first 3 fields from vertical config
+        verticalConfig.infosheetFields.slice(0, 3).forEach(field => {
+            comparisonData[field.key] = hasData ? (info[field.key] || noDataMsg) : noDataMsg;
+        });
+        
+        return comparisonData;
     });
 
     const langInstruction = getLanguageInstruction(language, 'comparison');
+    
+    // Build column descriptions from vertical config
+    const columnDescriptions = verticalConfig.infosheetFields.slice(0, 3)
+        .map(f => `- ${f.key}: ${f.label}`)
+        .join('\n');
+    
+    // Build scoring categories description
+    const scoringDesc = verticalConfig.scoringCategories
+        .map(c => c.label)
+        .join(', ');
 
-    const prompt = `Based on the following platform data, generate a comparison table with ratings.
+    const prompt = `Based on the following ${verticalConfig.name.toLowerCase()} platform data, generate a comparison table with ratings.
 
 ${langInstruction}
 
 **Platform Data:**
 ${JSON.stringify(researchData, null, 2)}
 
+**Columns to include:**
+${columnDescriptions}
+- rating: Overall star rating
+
 **STAR RATING AGGREGATION METHOD:**
-The overall star rating (1-5 stars) is calculated as follows:
-1. Take the average of all 6 category scores (Payment Methods, UX, Withdrawal Speed, Game Selection, Support, Bonuses)
-2. Convert the 1-10 average to 1-5 stars:
-   - Average 9.0-10: ⭐⭐⭐⭐⭐ (5 stars)
-   - Average 7.5-8.9: ⭐⭐⭐⭐ (4 stars)
-   - Average 6.0-7.4: ⭐⭐⭐ (3 stars)
-   - Average 4.5-5.9: ⭐⭐ (2 stars)
-   - Average below 4.5: ⭐ (1 star)
+The overall star rating (1-5 stars) is calculated based on these ${verticalConfig.name.toLowerCase()} criteria: ${scoringDesc}
+Convert to 1-5 stars:
+   - Excellent: ⭐⭐⭐⭐⭐ (5 stars)
+   - Very Good: ⭐⭐⭐⭐ (4 stars)
+   - Good: ⭐⭐⭐ (3 stars)
+   - Fair: ⭐⭐ (2 stars)
+   - Poor: ⭐ (1 star)
 
 **IMPORTANT:** If a platform has "hasResearchData: false", it means the research agent could NOT retrieve information for this platform. In that case:
 - Keep the "⚠️" warning messages as-is in the table
 - Do NOT rate this platform (use "N/A" or "—" for rating)
 - Do NOT make up or invent data for this platform
 
-For platforms WITH valid data, provide:
-- platformName: The platform name
-- license: The licensing authority
-- minDeposit: Minimum deposit amount
-- payoutSpeed: Typical payout timeframe
-- rating: Overall star rating using the aggregation method above`;
+For platforms WITH valid data, provide all columns with accurate data from the research.`;
+
+    // Build dynamic schema based on vertical config
+    const schemaProperties: Record<string, any> = {
+        platformName: { type: Type.STRING }
+    };
+    const requiredFields = ['platformName'];
+    
+    verticalConfig.infosheetFields.slice(0, 3).forEach(field => {
+        schemaProperties[field.key] = { type: Type.STRING };
+        requiredFields.push(field.key);
+    });
+    
+    schemaProperties.rating = { type: Type.STRING };
+    requiredFields.push('rating');
 
     const response = await withRetry(() => ai.models.generateContent({
         model: textModel,
@@ -888,14 +931,8 @@ For platforms WITH valid data, provide:
                         type: Type.ARRAY,
                         items: {
                             type: Type.OBJECT,
-                            properties: {
-                                platformName: { type: Type.STRING },
-                                license: { type: Type.STRING },
-                                minDeposit: { type: Type.STRING },
-                                payoutSpeed: { type: Type.STRING },
-                                rating: { type: Type.STRING }
-                            },
-                            required: ["platformName", "license", "minDeposit", "payoutSpeed", "rating"]
+                            properties: schemaProperties,
+                            required: requiredFields
                         }
                     }
                 },
@@ -1635,7 +1672,7 @@ export const generateFullArticle = async (
     let comparisonTable: ComparisonTableRow[] = [];
     if (config.includeSections.comparisonTable) {
         onProgress?.('generating-comparison');
-        comparisonTable = await generateComparisonTable(platformResearch, config.language);
+        comparisonTable = await generateComparisonTable(platformResearch, config.language, config.vertical || 'gambling');
     }
 
     onProgress?.('generating-reviews');

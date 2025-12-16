@@ -33,6 +33,10 @@ export interface VerticalConfig {
     
     // Research prompt customization
     researchContext: string;        // Context for the AI researcher
+    searchSuffix: string;           // Added to platform name for disambiguation (e.g., "cloud mining" or "online casino")
+    
+    // Comparison table columns
+    comparisonColumns: string[];    // Column names for comparison table
     
     // Disclaimer
     disclaimerTitle: string;

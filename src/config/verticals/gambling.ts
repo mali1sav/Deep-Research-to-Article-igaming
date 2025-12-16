@@ -108,6 +108,9 @@ export const gamblingConfig: VerticalConfig = {
     ],
     
     researchContext: 'You are a gambling industry research analyst. Research the online gambling/casino platform',
+    searchSuffix: 'online casino gambling',  // Helps disambiguate platform names
+    
+    comparisonColumns: ['License', 'Min Deposit', 'Payout Speed', 'Rating'],
     
     disclaimerTitle: '⚠️ Responsible Gambling',
     disclaimerText: 'Gambling involves risk and should be done responsibly. Please only gamble with money you can afford to lose. If you or someone you know has a gambling problem, please seek help from professional organizations. Many jurisdictions have support services available 24/7. You must be of legal gambling age in your jurisdiction to participate in online gambling activities.',
