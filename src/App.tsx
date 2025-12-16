@@ -26,6 +26,7 @@ import {
     DEFAULT_SECTION_WORD_COUNTS,
     DEFAULT_INCLUDE_SECTIONS
 } from './utils/templates';
+import { getVerticalConfig } from './config/verticals';
 
 // --- Loader Component ---
 const Loader: React.FC<{ message: string }> = ({ message }) => (
@@ -154,6 +155,7 @@ const App: React.FC = () => {
             return saved;
         }
         return {
+            vertical: 'gambling' as const,
             language: Language.ENGLISH,
             introNarrative: '',
             introWordCount: 200,
@@ -210,6 +212,7 @@ const App: React.FC = () => {
     // Clear all form data
     const handleClearAll = useCallback(() => {
         const defaultConfig: ArticleConfig = {
+            vertical: 'gambling' as const,
             language: Language.ENGLISH,
             introNarrative: '',
             introWordCount: 200,
@@ -316,6 +319,7 @@ const App: React.FC = () => {
             setLoadingMessage('Researching platforms...');
             const researchResults = await researchAllPlatforms(
                 config.platforms.map(p => p.name),
+                config.vertical || 'gambling',
                 (completed, total, platformName) => {
                     setLoadingMessage(`Researched ${platformName} (${completed}/${total})`);
                     setPlatformResearch(prev => prev.map(p => 
@@ -399,12 +403,12 @@ const App: React.FC = () => {
             html += `</div>`;
         }
 
-        // Responsible Gambling Disclaimer
+        // Risk Disclaimer (vertical-specific)
         if (config.includeResponsibleGamblingDisclaimer) {
-            const disclaimerText = config.responsibleGamblingDisclaimerText || 
-                'Gambling involves risk and should be done responsibly. Please only gamble with money you can afford to lose. If you or someone you know has a gambling problem, please seek help from professional organizations. Many jurisdictions have support services available 24/7. You must be of legal gambling age in your jurisdiction to participate in online gambling activities.';
-            html += `<div class="responsible-gambling-disclaimer" style="margin-top: 2rem; padding: 1rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem;">
-<h3 style="font-weight: bold; margin-bottom: 0.5rem;">⚠️ Responsible Gambling</h3>
+            const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
+            const disclaimerText = config.responsibleGamblingDisclaimerText || verticalConfig.disclaimerText;
+            html += `<div class="risk-disclaimer" style="margin-top: 2rem; padding: 1rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem;">
+<h3 style="font-weight: bold; margin-bottom: 0.5rem;">${verticalConfig.disclaimerTitle}</h3>
 <p style="font-size: 0.875rem; color: #4b5563;">${disclaimerText}</p>
 </div>`;
         }
@@ -641,21 +645,21 @@ const App: React.FC = () => {
             html += `\n`;
         }
 
-        // Responsible Gambling Disclaimer
+        // Risk Disclaimer (vertical-specific)
         if (config.includeResponsibleGamblingDisclaimer) {
-            const disclaimerText = config.responsibleGamblingDisclaimerText || 
-                'Gambling involves risk and should be done responsibly. Please only gamble with money you can afford to lose. If you or someone you know has a gambling problem, please seek help from professional organizations. Many jurisdictions have support services available 24/7. You must be of legal gambling age in your jurisdiction to participate in online gambling activities.';
+            const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
+            const disclaimerText = config.responsibleGamblingDisclaimerText || verticalConfig.disclaimerText;
             if (useShortcodes) {
                 html += `[su_note note_color="#fef3c7" text_color="#78350f"]\n`;
-                html += `<strong>⚠️ Responsible Gambling</strong>\n${disclaimerText}\n[/su_note]\n`;
+                html += `<strong>${verticalConfig.disclaimerTitle}</strong>\n${disclaimerText}\n[/su_note]\n`;
             } else {
                 html += `<div style="background-color: #fef3c7; color: #78350f; padding: 16px; border-radius: 8px; margin-top: 24px;">\n`;
-                html += `<strong>⚠️ Responsible Gambling</strong><br>\n${disclaimerText}\n</div>\n`;
+                html += `<strong>${verticalConfig.disclaimerTitle}</strong><br>\n${disclaimerText}\n</div>\n`;
             }
         }
 
         navigator.clipboard.writeText(html);
-    }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, config.includeSections, config.useShortcodes]);
+    }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, config.includeSections, config.useShortcodes, config.vertical]);
 
     const handleDownloadHtml = useCallback(() => {
         if (!generatedArticle) return;
@@ -757,12 +761,12 @@ const App: React.FC = () => {
             });
         }
 
-        // Responsible Gambling Disclaimer
+        // Risk Disclaimer (vertical-specific)
         if (config.includeResponsibleGamblingDisclaimer) {
-            const disclaimerText = config.responsibleGamblingDisclaimerText || 
-                'Gambling involves risk and should be done responsibly. Please only gamble with money you can afford to lose.';
+            const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
+            const disclaimerText = config.responsibleGamblingDisclaimerText || verticalConfig.disclaimerText;
             articleContent += `<div style="background-color: #fef3c7; padding: 16px; border-radius: 8px; margin: 16px 0;">`;
-            articleContent += `<h3 style="color: #92400e;">⚠️ Responsible Gambling</h3>\n`;
+            articleContent += `<h3 style="color: #92400e;">${verticalConfig.disclaimerTitle}</h3>\n`;
             articleContent += `<p style="color: #78350f;">${disclaimerText}</p></div>\n`;
         }
 

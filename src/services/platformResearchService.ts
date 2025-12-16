@@ -14,8 +14,10 @@ import {
     SeoMode,
     ToneOfVoice,
     TargetKeyword,
-    AdditionalSection
+    AdditionalSection,
+    VerticalType
 } from '../types';
+import { getVerticalConfig, VerticalConfig } from '../config/verticals';
 
 // --- API Configuration ---
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -388,22 +390,23 @@ interface ResearchResponse {
     sources: string[];
 }
 
-export const researchPlatform = async (platformName: string): Promise<PlatformResearch> => {
-    const prompt = `You are a gambling industry research analyst. Research the online gambling/casino platform "${platformName}" and provide comprehensive, factual information.
+// Generate research prompt dynamically based on vertical config
+const buildResearchPrompt = (platformName: string, verticalConfig: VerticalConfig): string => {
+    const fieldsList = verticalConfig.infosheetFields
+        .map((field, idx) => `${idx + 1}. **${field.label}**: ${field.researchPrompt} (e.g., "${field.example}")`)
+        .join('\n');
+    
+    const infosheetJson = verticalConfig.infosheetFields
+        .map(field => `        "${field.key}": ${field.type === 'array' ? '["..."]' : '"..."'}`)
+        .join(',\n');
+
+    return `${verticalConfig.researchContext} "${platformName}" and provide comprehensive, factual information.
 
 Find and report REAL DATA for:
-1. **License**: Which gaming authority issued the license (e.g., "Curacao eGaming", "Malta Gaming Authority", "PAGCOR")
-2. **Country**: Where the company is headquartered or registered
-3. **Company**: The actual company name that operates the platform
-4. **Minimum Deposit**: Actual minimum deposit amount (e.g., "$10", "€20")
-5. **Payout Speed**: Typical withdrawal timeframe (e.g., "24-48 hours", "1-3 business days")
-6. **Supported Currencies**: List of currencies accepted
-7. **Payment Methods**: List of deposit/withdrawal methods
-8. **KYC Requirement**: Whether KYC verification is required (e.g., "Required before first withdrawal", "Required for withdrawals over $2000", "Not required")
-9. **Welcome Bonus**: Current welcome bonus offer (e.g., "100% up to $500 + 50 free spins", "No welcome bonus")
-10. **Key Features**: 3-5 notable features of this platform
-12. **Pros**: Genuine advantages based on user reviews (3-6 items)
-13. **Cons**: Genuine disadvantages based on user reviews (2-5 items)
+${fieldsList}
+${verticalConfig.infosheetFields.length + 1}. **Key Features**: 3-5 notable features of this ${verticalConfig.platformTerm}
+${verticalConfig.infosheetFields.length + 2}. **Pros**: Genuine advantages based on user reviews (3-6 items)
+${verticalConfig.infosheetFields.length + 3}. **Cons**: Genuine disadvantages based on user reviews (2-5 items)
 
 IMPORTANT:
 - Search thoroughly and provide actual data you find
@@ -412,28 +415,25 @@ IMPORTANT:
 
 CITATION RULES:
 - Provide actual source page URLs (e.g., https://example.com/page)
-- Only cite credibility-important info (licenses, company details, bonuses) - NOT generic knowledge
-- Maximum 3-5 high-quality sources per platform
+- Only cite credibility-important info - NOT generic knowledge
+- Maximum 3-5 high-quality sources per ${verticalConfig.platformTerm}
 
 Format your response as JSON:
 {
     "shortDescription": "1-2 sentence description",
     "infosheet": {
-        "license": "...",
-        "country": "...",
-        "company": "...",
-        "minDeposit": "...",
-        "payoutSpeed": "...",
-        "supportedCurrencies": ["..."],
-        "paymentMethods": ["..."],
-        "kycRequirement": "...",
-        "welcomeBonus": "..."
+${infosheetJson}
     },
     "keyFeatures": ["..."],
     "pros": ["..."],
     "cons": ["..."],
     "sources": ["https://full-url-to-source-page.com/path"]
 }`;
+};
+
+export const researchPlatform = async (platformName: string, vertical: VerticalType = 'gambling'): Promise<PlatformResearch> => {
+    const verticalConfig = getVerticalConfig(vertical);
+    const prompt = buildResearchPrompt(platformName, verticalConfig);
 
     try {
         // First call - initial research
@@ -531,6 +531,7 @@ Format your response as JSON:
  */
 export const researchAllPlatforms = async (
     platformNames: string[],
+    vertical: VerticalType = 'gambling',
     onProgress?: (completed: number, total: number, platformName: string) => void
 ): Promise<PlatformResearch[]> => {
     const total = platformNames.length;
@@ -546,7 +547,7 @@ export const researchAllPlatforms = async (
         
         // Process batch in parallel
         const batchPromises = batch.map(async (name) => {
-            const result = await researchPlatform(name);
+            const result = await researchPlatform(name, vertical);
             completed++;
             onProgress?.(completed, total, name);
             return result;
@@ -802,10 +803,16 @@ export const generatePlatformReview = async (
     config: ArticleConfig,
     affiliateUrl?: string
 ): Promise<PlatformReview> => {
+    const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
     const langInstruction = getLanguageInstruction(config.language, 'review');
     const citationsIndex = buildCitationsIndexBlock(research.citations);
     const prosTarget = Math.max(3, config.sectionWordCounts.prosConsItems);
     const consMax = Math.max(1, prosTarget - 1);
+    
+    // Build dynamic scoring categories from vertical config
+    const scoringCategoriesText = verticalConfig.scoringCategories
+        .map((cat, idx) => `${idx + 1}. ${cat.label} - Score based on: ${cat.description}`)
+        .join('\n');
     
     // Check if we have valid research data
     const hasData = hasValidResearchData(research);
@@ -832,7 +839,7 @@ export const generatePlatformReview = async (
         };
     }
 
-    const prompt = `You are an impartial gambling industry analyst writing a factual review for "${research.name}".
+    const prompt = `You are an impartial ${verticalConfig.name.toLowerCase()} industry analyst writing a factual review for "${research.name}".
 
 ${langInstruction}
 
@@ -861,12 +868,7 @@ Each category is scored 1-10 based on these criteria:
 - **4-1 (Below Average to Poor):** Significant issues, not recommended for this category
 
 **Rating Categories:**
-1. Payment Methods - Score based on: variety of options, regional relevance, crypto support, e-wallet coverage
-2. User Experience - Score based on: interface design, mobile optimization, navigation ease, loading speed
-3. Withdrawal Speed - Score based on: average processing time (instant=10, <24h=8-9, 1-3 days=6-7, >3 days=4-5)
-4. Game Selection - Score based on: number of providers, game variety, live casino options, sports coverage
-5. Customer Support - Score based on: availability (24/7=higher), response time, channel variety, language support
-6. Bonuses & Promotions - Score based on: welcome bonus value, wagering requirements (lower=better), ongoing promotions
+${scoringCategoriesText}
 
 **Requirements:**
 - Overview: Write approximately ${config.sectionWordCounts.overview} words as a detailed, factual overview paragraph
@@ -1473,6 +1475,7 @@ export const generateReviewsOnly = async (
     
     const platformResearch = await researchAllPlatforms(
         platformNames,
+        config.vertical || 'gambling',
         (completed, total, platformName) => {
             onProgress?.('researching', `Researched ${platformName} (${completed}/${total})`);
         }

@@ -8,8 +8,10 @@ import {
     WritingModel,
     ToneOfVoice,
     InternalLink,
-    TargetKeyword
+    TargetKeyword,
+    VerticalType
 } from '../types';
+import { getVerticalConfig, getVerticalOptions } from '../config/verticals';
 import { generateResponsibleGamblingDisclaimer } from '../services/platformResearchService';
 
 // Icons
@@ -206,9 +208,35 @@ export const InputForm: React.FC<InputFormProps> = ({
     );
 
     const isReviewOnlyMode = config.reviewOnlyMode || false;
+    const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
+    const verticalOptions = getVerticalOptions();
 
     return (
         <div className="space-y-6">
+            {/* Vertical Selector */}
+            <div className="flex items-center gap-4 bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-200">
+                <span className="text-sm font-medium text-indigo-700">Content Vertical:</span>
+                <div className="flex gap-2">
+                    {verticalOptions.map(option => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setConfig({ ...config, vertical: option.value })}
+                            className={`px-4 py-2 rounded-lg font-medium transition ${
+                                config.vertical === option.value
+                                    ? 'bg-indigo-600 text-white shadow-md'
+                                    : 'bg-white text-indigo-600 border border-indigo-300 hover:bg-indigo-50'
+                            }`}
+                        >
+                            {option.value === 'gambling' ? '🎰' : '₿'} {option.label}
+                        </button>
+                    ))}
+                </div>
+                <span className="text-xs text-indigo-500 ml-auto">
+                    {verticalConfig.description}
+                </span>
+            </div>
+
             {/* Top Bar: Mode Toggle + Clear All */}
             <div className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
                 <div className="flex items-center gap-4">

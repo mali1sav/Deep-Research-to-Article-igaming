@@ -1,6 +1,11 @@
 // ============================================
-// Gambling Evergreen Content Tool - Type Definitions
+// Evergreen Content Tool - Type Definitions
+// Supports multiple verticals: Gambling, Crypto, etc.
 // ============================================
+
+import { VerticalType } from './config/verticals/types';
+
+export type { VerticalType } from './config/verticals/types';
 
 export enum Language {
     ENGLISH = 'english',
@@ -136,6 +141,7 @@ export interface AdditionalSection {
 }
 
 export interface ArticleConfig {
+    vertical: VerticalType;  // 'gambling' | 'crypto' - determines infosheet fields, scoring, prompts
     language: Language;
     introNarrative: string;
     introWordCount: number;
