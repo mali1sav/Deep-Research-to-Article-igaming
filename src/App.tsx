@@ -963,6 +963,7 @@ Image Alt Text: ${seo.imageAltText}
                                         review={review}
                                         language={config.language}
                                         showInfosheet={config.includeSections.platformInfosheet}
+                                        showRatings={config.includeSections.platformRatings}
                                         showProsCons={config.includeSections.prosCons}
                                         showVerdict={config.includeSections.verdict}
                                     />
