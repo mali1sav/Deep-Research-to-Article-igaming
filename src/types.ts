@@ -161,6 +161,8 @@ export interface ArticleConfig {
     responsibleGamblingDisclaimerText?: string;  // Custom or AI-generated disclaimer
     // SERP competitor analysis
     serpKeyword?: string;  // Keyword to analyze competitors for
+    // Review Only mode - generates only platform reviews without intro, comparison, FAQs
+    reviewOnlyMode?: boolean;
 }
 
 // --- Template Types ---

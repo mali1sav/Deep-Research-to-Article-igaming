@@ -205,10 +205,29 @@ export const InputForm: React.FC<InputFormProps> = ({
         </label>
     );
 
+    const isReviewOnlyMode = config.reviewOnlyMode || false;
+
     return (
         <div className="space-y-6">
-            {/* Clear All Button - Top Right */}
-            <div className="flex justify-end">
+            {/* Top Bar: Mode Toggle + Clear All */}
+            <div className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+                <div className="flex items-center gap-4">
+                    <label className="flex items-center cursor-pointer">
+                        <div className="relative">
+                            <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={isReviewOnlyMode}
+                                onChange={(e) => setConfig({ ...config, reviewOnlyMode: e.target.checked })}
+                            />
+                            <div className={`block w-14 h-8 rounded-full transition ${isReviewOnlyMode ? 'bg-orange-500' : 'bg-gray-300'}`}></div>
+                            <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform shadow-sm ${isReviewOnlyMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                        </div>
+                        <span className={`ml-3 font-semibold ${isReviewOnlyMode ? 'text-orange-700' : 'text-gray-600'}`}>
+                            {isReviewOnlyMode ? '🔄 Review Only Mode' : '📝 Full Article Mode'}
+                        </span>
+                    </label>
+                </div>
                 <button
                     type="button"
                     onClick={onClearAll}
@@ -218,7 +237,25 @@ export const InputForm: React.FC<InputFormProps> = ({
                 </button>
             </div>
 
-            {/* Section 1: Article Structure and Settings */}
+            {/* Review Only Mode Warning */}
+            {isReviewOnlyMode && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                        <span className="text-orange-500 text-xl">⚠️</span>
+                        <div>
+                            <h3 className="font-semibold text-orange-800 mb-1">Review Only Mode</h3>
+                            <p className="text-sm text-orange-700">
+                                This mode generates <strong>only platform reviews</strong>. Intro, List, Comparison Table, and FAQs will not be generated.
+                                <br />
+                                <span className="text-orange-600">You must manually update your List and Comparison Table sections in existing articles.</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Section 1: Article Structure and Settings - Hidden in Review Only Mode */}
+            {!isReviewOnlyMode && (
             <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <span className="mr-2">📝</span> Article Structure and Settings
@@ -370,12 +407,48 @@ export const InputForm: React.FC<InputFormProps> = ({
                     )}
                 </div>
             </div>
+            )}
 
             {/* Section 2: Writing & SEO Settings */}
-            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
+            <div className={`bg-white border p-6 rounded-xl shadow-lg ${isReviewOnlyMode ? 'border-orange-300 ring-2 ring-orange-100' : 'border-gray-200'}`}>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <span className="mr-2">✍️</span> Writing & SEO Settings
+                    {isReviewOnlyMode && <span className="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">Required for Review Only</span>}
                 </h2>
+
+                {/* Language & Writing Model - shown only in Review Only mode */}
+                {isReviewOnlyMode && (
+                    <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-gray-200">
+                        <div>
+                            <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-1">Language</label>
+                            <select 
+                                id="language" 
+                                value={config.language} 
+                                onChange={(e) => setConfig({ ...config, language: e.target.value as Language })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value={Language.ENGLISH}>English</option>
+                                <option value={Language.THAI}>Thai</option>
+                                <option value={Language.VIETNAMESE}>Vietnamese</option>
+                                <option value={Language.JAPANESE}>Japanese</option>
+                                <option value={Language.KOREAN}>Korean</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="writingModel" className="block text-sm font-medium text-gray-700 mb-1">Writing Model</label>
+                            <select 
+                                id="writingModel" 
+                                value={config.writingModel} 
+                                onChange={(e) => setConfig({ ...config, writingModel: e.target.value as WritingModel })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value={WritingModel.GPT_5_2}>GPT 5.2</option>
+                                <option value={WritingModel.GEMINI_2_5_PRO}>Gemini 2.5 Pro</option>
+                                <option value={WritingModel.CLAUDE_SONNET_4_5}>Claude Sonnet 4.5</option>
+                            </select>
+                        </div>
+                    </div>
+                )}
                 
                 {/* 3-column layout */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -523,9 +596,10 @@ export const InputForm: React.FC<InputFormProps> = ({
             </div>
 
             {/* Section 5: Platforms to Review (with Review Settings) */}
-            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
+            <div className={`bg-white border p-6 rounded-xl shadow-lg ${isReviewOnlyMode ? 'border-orange-300 ring-2 ring-orange-100' : 'border-gray-200'}`}>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <span className="mr-2">🎰</span> Platforms to Review
+                    {isReviewOnlyMode && <span className="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">Required for Review Only</span>}
                 </h2>
 
                 <div className="space-y-4">
@@ -669,7 +743,8 @@ export const InputForm: React.FC<InputFormProps> = ({
                 </div>
             </div>
 
-            {/* SERP Competitor Analysis Section */}
+            {/* SERP Competitor Analysis Section - Hidden in Review Only mode */}
+            {!isReviewOnlyMode && (
             <div className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                 <button
                     type="button"
@@ -779,16 +854,28 @@ export const InputForm: React.FC<InputFormProps> = ({
                     </div>
                 )}
             </div>
+            )}
 
             {/* Submit Button */}
             <div className="text-center">
                 <button 
                     onClick={onSubmit} 
                     disabled={isLoading || config.platforms.length === 0}
-                    className="inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white font-bold rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
+                    className={`inline-flex items-center justify-center px-8 py-3 font-bold rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 ${
+                        isReviewOnlyMode 
+                            ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white'
+                            : 'bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white'
+                    }`}
                 >
                     <SearchIcon />
-                    <span className="ml-2">{isLoading ? 'Researching...' : 'Research & Generate Article'}</span>
+                    <span className="ml-2">
+                        {isLoading 
+                            ? 'Researching...' 
+                            : isReviewOnlyMode 
+                                ? '🔄 Research & Generate Reviews Only'
+                                : 'Research & Generate Article'
+                        }
+                    </span>
                 </button>
                 {config.platforms.length === 0 && (
                     <p className="mt-2 text-sm text-red-500">Please add at least one platform to review.</p>

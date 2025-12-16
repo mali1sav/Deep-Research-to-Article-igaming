@@ -1418,47 +1418,48 @@ export const generateFullArticle = async (
 };
 
 /**
- * Refresh only specific platform reviews - re-research and regenerate reviews
- * while keeping other article sections intact
+ * Generate only platform reviews - research platforms and generate review content
+ * without intro, comparison table, FAQs, etc.
+ * Used for Review Only mode where user wants to update/generate just the reviews
  */
-export const refreshPlatformReviews = async (
-    platformNames: string[],
+export const generateReviewsOnly = async (
     config: ArticleConfig,
-    existingArticle: GeneratedArticle,
     onProgress?: (phase: string, detail?: string) => void
 ): Promise<{ 
-    updatedResearch: PlatformResearch[]; 
-    updatedReviews: PlatformReview[];
+    platformResearch: PlatformResearch[]; 
+    platformReviews: PlatformReview[];
 }> => {
-    // Re-research selected platforms
-    onProgress?.('researching', `Re-researching ${platformNames.length} platform(s)...`);
+    const platformNames = config.platforms.map(p => p.name);
     
-    const researchResults = await researchAllPlatforms(
+    // Research all platforms
+    onProgress?.('researching', `Researching ${platformNames.length} platform(s)...`);
+    
+    const platformResearch = await researchAllPlatforms(
         platformNames,
         (completed, total, platformName) => {
             onProgress?.('researching', `Researched ${platformName} (${completed}/${total})`);
         }
     );
 
-    // Regenerate reviews for selected platforms
-    onProgress?.('generating-reviews', 'Regenerating platform reviews...');
-    const updatedReviews: PlatformReview[] = [];
+    // Generate reviews for all platforms
+    onProgress?.('generating-reviews', 'Generating platform reviews...');
+    const platformReviews: PlatformReview[] = [];
     
-    for (let i = 0; i < researchResults.length; i++) {
-        const research = researchResults[i];
+    for (let i = 0; i < platformResearch.length; i++) {
+        const research = platformResearch[i];
         const platformInput = config.platforms.find(p => p.name === research.name);
-        onProgress?.('generating-reviews', `${research.name} (${i + 1}/${researchResults.length})`);
+        onProgress?.('generating-reviews', `${research.name} (${i + 1}/${platformResearch.length})`);
         
         const review = await generatePlatformReview(
             research,
             config,
             platformInput?.affiliateUrl
         );
-        updatedReviews.push(review);
+        platformReviews.push(review);
     }
 
     return {
-        updatedResearch: researchResults,
-        updatedReviews
+        platformResearch,
+        platformReviews
     };
 };

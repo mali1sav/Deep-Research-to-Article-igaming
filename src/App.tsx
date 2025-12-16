@@ -9,7 +9,7 @@ import {
     researchAllPlatforms, 
     generateFullArticle,
     analyzeSerpCompetitors,
-    refreshPlatformReviews,
+    generateReviewsOnly,
     SerpCompetitor
 } from './services/platformResearchService';
 import { 
@@ -183,9 +183,6 @@ const App: React.FC = () => {
     const [serpCompetitors, setSerpCompetitors] = useState<SerpCompetitor[]>([]);
     const [serpAnalysisLoading, setSerpAnalysisLoading] = useState(false);
 
-    // Refresh reviews state
-    const [platformsToRefresh, setPlatformsToRefresh] = useState<Set<string>>(new Set());
-    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Handler for SERP competitor analysis
     const handleAnalyzeSerpCompetitors = useCallback(async (keyword: string, count: number) => {
@@ -234,97 +231,7 @@ const App: React.FC = () => {
         setGeneratedArticle(null);
         setError(null);
         setLoadingMessage('');
-        setPlatformsToRefresh(new Set());
     };
-
-    // Toggle platform selection for refresh
-    const togglePlatformForRefresh = useCallback((platformName: string) => {
-        setPlatformsToRefresh(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(platformName)) {
-                newSet.delete(platformName);
-            } else {
-                newSet.add(platformName);
-            }
-            return newSet;
-        });
-    }, []);
-
-    // Select/deselect all platforms for refresh
-    const toggleAllPlatformsForRefresh = useCallback(() => {
-        if (!generatedArticle) return;
-        const allPlatforms = generatedArticle.platformReviews.map(r => r.platformName);
-        setPlatformsToRefresh(prev => {
-            if (prev.size === allPlatforms.length) {
-                return new Set(); // Deselect all
-            }
-            return new Set(allPlatforms); // Select all
-        });
-    }, [generatedArticle]);
-
-    // Handler for refreshing only selected platform reviews
-    const handleRefreshReviews = useCallback(async () => {
-        if (platformsToRefresh.size === 0 || !generatedArticle) {
-            setError('Please select at least one platform to refresh.');
-            return;
-        }
-
-        setIsRefreshing(true);
-        setError(null);
-        setLoadingMessage('Refreshing selected platform reviews...');
-
-        try {
-            const platformNames: string[] = Array.from(platformsToRefresh);
-            
-            const { updatedResearch, updatedReviews } = await refreshPlatformReviews(
-                platformNames,
-                config,
-                generatedArticle,
-                (phase, detail) => {
-                    if (detail) {
-                        setLoadingMessage(detail);
-                    }
-                }
-            );
-
-            // Update platform research with refreshed data
-            setPlatformResearch(prev => {
-                const updated = [...prev];
-                updatedResearch.forEach(newResearch => {
-                    const index = updated.findIndex(p => p.name === newResearch.name);
-                    if (index >= 0) {
-                        updated[index] = newResearch;
-                    }
-                });
-                return updated;
-            });
-
-            // Update generated article with refreshed reviews
-            setGeneratedArticle(prev => {
-                if (!prev) return prev;
-                const updatedPlatformReviews = [...prev.platformReviews];
-                updatedReviews.forEach(newReview => {
-                    const index = updatedPlatformReviews.findIndex(r => r.platformName === newReview.platformName);
-                    if (index >= 0) {
-                        updatedPlatformReviews[index] = newReview;
-                    }
-                });
-                return {
-                    ...prev,
-                    platformReviews: updatedPlatformReviews
-                };
-            });
-
-            setPlatformsToRefresh(new Set());
-            setLoadingMessage('');
-
-        } catch (e: any) {
-            console.error(e);
-            setError(e.message || 'Failed to refresh reviews.');
-        } finally {
-            setIsRefreshing(false);
-        }
-    }, [platformsToRefresh, generatedArticle, config]);
 
     // Main workflow handler
     const handleStartResearch = useCallback(async () => {
@@ -360,7 +267,39 @@ const App: React.FC = () => {
             }));
             setPlatformResearch(initialResearch);
 
-            // Run SERP competitor analysis if keyword is provided
+            // Review Only Mode - generate only platform reviews
+            if (config.reviewOnlyMode) {
+                setLoadingMessage('Generating reviews only...');
+                
+                const { platformResearch: researchResults, platformReviews } = await generateReviewsOnly(
+                    config,
+                    (phase, detail) => {
+                        setWorkflowPhase(phase as WorkflowPhase);
+                        if (detail) {
+                            setLoadingMessage(detail);
+                        }
+                    }
+                );
+                
+                setPlatformResearch(researchResults);
+                
+                // Create a partial article with only reviews
+                const reviewOnlyArticle: GeneratedArticle = {
+                    intro: '',
+                    platformQuickList: [],
+                    comparisonTable: [],
+                    platformReviews,
+                    additionalSections: [],
+                    faqs: [],
+                    allCitations: researchResults.flatMap(r => r.citations)
+                };
+                
+                setGeneratedArticle(reviewOnlyArticle);
+                setWorkflowPhase('completed');
+                return;
+            }
+
+            // Full Article Mode - run SERP analysis if keyword provided
             if (config.serpKeyword?.trim()) {
                 setSerpAnalysisLoading(true);
                 setLoadingMessage('Analyzing SERP competitors...');
@@ -922,67 +861,18 @@ const App: React.FC = () => {
                                 <ComparisonTable rows={generatedArticle.comparisonTable} language={config.language} />
                             )}
 
-                            {/* Platform Reviews with Refresh Controls */}
+                            {/* Platform Reviews */}
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-xl font-semibold text-gray-900">{uiText.platformReviews}</h2>
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={toggleAllPlatformsForRefresh}
-                                            className="text-sm text-blue-600 hover:text-blue-800"
-                                        >
-                                            {platformsToRefresh.size === generatedArticle.platformReviews.length ? 'Deselect All' : 'Select All'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleRefreshReviews}
-                                            disabled={platformsToRefresh.size === 0 || isRefreshing}
-                                            className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm rounded-md font-medium transition flex items-center gap-1"
-                                        >
-                                            {isRefreshing ? (
-                                                <>
-                                                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                                                    </svg>
-                                                    Refreshing...
-                                                </>
-                                            ) : (
-                                                <>🔄 Refresh Selected ({platformsToRefresh.size})</>
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                                {isRefreshing && loadingMessage && (
-                                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-700">
-                                        {loadingMessage}
-                                    </div>
-                                )}
-                                <p className="text-xs text-gray-500">
-                                    💡 Select platforms to re-research and update their reviews only (keeps intro, comparison, FAQs unchanged)
-                                </p>
+                                <h2 className="text-xl font-semibold text-gray-900">{uiText.platformReviews}</h2>
                                 {generatedArticle.platformReviews.map((review, index) => (
-                                    <div key={index} className="relative">
-                                        <div className="absolute top-4 left-4 z-10">
-                                            <label className="flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={platformsToRefresh.has(review.platformName)}
-                                                    onChange={() => togglePlatformForRefresh(review.platformName)}
-                                                    className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
-                                                />
-                                                <span className="ml-2 text-xs font-medium text-gray-600">Refresh</span>
-                                            </label>
-                                        </div>
-                                        <PlatformReviewCard
-                                            review={review}
-                                            language={config.language}
-                                            showInfosheet={config.includeSections.platformInfosheet}
-                                            showProsCons={config.includeSections.prosCons}
-                                            showVerdict={config.includeSections.verdict}
-                                        />
-                                    </div>
+                                    <PlatformReviewCard
+                                        key={index}
+                                        review={review}
+                                        language={config.language}
+                                        showInfosheet={config.includeSections.platformInfosheet}
+                                        showProsCons={config.includeSections.prosCons}
+                                        showVerdict={config.includeSections.verdict}
+                                    />
                                 ))}
                             </div>
 
