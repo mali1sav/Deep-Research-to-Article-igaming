@@ -246,6 +246,10 @@ const App: React.FC = () => {
 
     // Main workflow handler
     const handleStartResearch = useCallback(async () => {
+        if (!config.verticalConfirmed) {
+            setError('Please select a Content Vertical (Gambling or Crypto) before starting research.');
+            return;
+        }
         if (config.platforms.length === 0) {
             setError('Please add at least one platform to review.');
             return;

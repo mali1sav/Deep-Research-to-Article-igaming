@@ -919,10 +919,17 @@ export const generatePlatformReview = async (
     const prosTarget = Math.max(3, config.sectionWordCounts.prosConsItems);
     const consMax = Math.max(1, prosTarget - 1);
     
-    // Build dynamic scoring categories from vertical config
-    const scoringCategoriesText = verticalConfig.scoringCategories
-        .map((cat, idx) => `${idx + 1}. ${cat.label} - Score based on: ${cat.description}`)
-        .join('\n');
+    // Check which sections are enabled
+    const includeRatings = config.includeSections?.platformRatings !== false;
+    const includeProsCons = config.includeSections?.prosCons !== false;
+    const includeVerdict = config.includeSections?.verdict !== false;
+    
+    // Build dynamic scoring categories from vertical config (only if ratings enabled)
+    const scoringCategoriesText = includeRatings 
+        ? verticalConfig.scoringCategories
+            .map((cat, idx) => `${idx + 1}. ${cat.label} - Score based on: ${cat.description}`)
+            .join('\n')
+        : '';
     
     // Check if we have valid research data
     const hasData = hasValidResearchData(research);
@@ -938,16 +945,47 @@ export const generatePlatformReview = async (
     if (!hasData) {
         return {
             platformName: research.name,
-            overview: `<p><strong>${noDataMsg}</strong></p><p>The research agent was unable to retrieve comprehensive information for ${research.name}. A human editor should manually research and complete this section with accurate details about licensing, payment methods, game selection, and user experience.</p>`,
+            overview: `<p><strong>${noDataMsg}</strong></p><p>The research agent was unable to retrieve comprehensive information for ${research.name}. A human editor should manually research and complete this section with accurate details.</p>`,
             ratings: [],
-            pros: ['Information pending manual research'],
-            cons: ['Research data not available'],
-            verdict: `<p><strong>${noDataMsg}</strong></p><p>This platform requires manual research and verification before a proper verdict can be provided.</p>`,
+            pros: includeProsCons ? ['Information pending manual research'] : [],
+            cons: includeProsCons ? ['Research data not available'] : [],
+            verdict: includeVerdict ? `<p><strong>${noDataMsg}</strong></p><p>This platform requires manual research and verification before a proper verdict can be provided.</p>` : '',
             infosheet: research.infosheet,
             citations: research.citations || [],
             affiliateUrl
         };
     }
+
+    // Build requirements based on what's enabled
+    const requirements: string[] = [
+        `- Overview: Write approximately ${config.sectionWordCounts.overview} words as a detailed, factual overview paragraph`
+    ];
+    if (includeRatings) {
+        requirements.push('- Ratings: Apply the scoring methodology above strictly based on research findings');
+    }
+    if (includeProsCons) {
+        requirements.push(`- Pros: Provide about ${prosTarget} items - must be factual, not promotional`);
+        requirements.push(`- Cons: Provide between 1 and ${consMax} items - be honest about real drawbacks`);
+    }
+    if (includeVerdict) {
+        requirements.push(`- Verdict: Write approximately ${config.sectionWordCounts.verdict} words as a balanced conclusion`);
+    }
+
+    // Build scoring section only if ratings enabled
+    const scoringSection = includeRatings ? `
+**SCORING METHODOLOGY (apply strictly):**
+Each category is scored 1-10 based on these criteria:
+- **10 (Exceptional):** Industry-leading, significantly better than competitors, verified by multiple sources
+- **9 (Excellent):** Top-tier performance with minor room for improvement
+- **8 (Very Good):** Above average, meets high standards with some limitations
+- **7 (Good):** Solid performance, meets expectations without excelling
+- **6 (Adequate):** Acceptable but has notable gaps or limitations
+- **5 (Average):** Mediocre, neither good nor bad, room for improvement
+- **4-1 (Below Average to Poor):** Significant issues, not recommended for this category
+
+**Rating Categories:**
+${scoringCategoriesText}
+` : '';
 
     const prompt = `You are an impartial ${verticalConfig.name.toLowerCase()} industry analyst writing a factual review for "${research.name}".
 
@@ -966,33 +1004,54 @@ ${citationsIndex}
 
 **Research Data:**
 ${JSON.stringify(research, null, 2)}
-
-**SCORING METHODOLOGY (apply strictly):**
-Each category is scored 1-10 based on these criteria:
-- **10 (Exceptional):** Industry-leading, significantly better than competitors, verified by multiple sources
-- **9 (Excellent):** Top-tier performance with minor room for improvement
-- **8 (Very Good):** Above average, meets high standards with some limitations
-- **7 (Good):** Solid performance, meets expectations without excelling
-- **6 (Adequate):** Acceptable but has notable gaps or limitations
-- **5 (Average):** Mediocre, neither good nor bad, room for improvement
-- **4-1 (Below Average to Poor):** Significant issues, not recommended for this category
-
-**Rating Categories:**
-${scoringCategoriesText}
-
+${scoringSection}
 **Requirements:**
-- Overview: Write approximately ${config.sectionWordCounts.overview} words as a detailed, factual overview paragraph
-- Ratings: Apply the scoring methodology above strictly based on research findings
-- Pros: Provide about ${prosTarget} items - must be factual, not promotional
-- Cons: Provide between 1 and ${consMax} items - be honest about real drawbacks
-- Verdict: Write approximately ${config.sectionWordCounts.verdict} words as a balanced conclusion
+${requirements.join('\n')}
 
 IMPORTANT: 
 - Use in-text citations within paragraphs, NOT a references list at the end
 - If sources conflict, use the most authoritative source (official site > review site > forum)
-- Include at least 2 in-text citations in Overview and at least 1 in Verdict
+- Include at least 2 in-text citations in Overview${includeVerdict ? ' and at least 1 in Verdict' : ''}
 
-Output HTML for overview and verdict (use <p> tags).`;
+Output HTML for overview${includeVerdict ? ' and verdict' : ''} (use <p> tags).`;
+
+    // Build response schema based on what's enabled
+    const schemaProperties: Record<string, any> = {
+        overview: { type: Type.STRING }
+    };
+    const requiredFields = ['overview'];
+
+    if (includeRatings) {
+        schemaProperties.ratings = {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    category: { type: Type.STRING },
+                    score: { type: Type.NUMBER }
+                },
+                required: ["category", "score"]
+            }
+        };
+        requiredFields.push('ratings');
+    }
+
+    if (includeProsCons) {
+        schemaProperties.pros = {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+        };
+        schemaProperties.cons = {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+        };
+        requiredFields.push('pros', 'cons');
+    }
+
+    if (includeVerdict) {
+        schemaProperties.verdict = { type: Type.STRING };
+        requiredFields.push('verdict');
+    }
 
     const response = await withRetry(() => ai.models.generateContent({
         model: textModel,
@@ -1001,67 +1060,51 @@ Output HTML for overview and verdict (use <p> tags).`;
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
-                properties: {
-                    overview: { type: Type.STRING },
-                    ratings: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                category: { type: Type.STRING },
-                                score: { type: Type.NUMBER }
-                            },
-                            required: ["category", "score"]
-                        }
-                    },
-                    pros: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING }
-                    },
-                    cons: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING }
-                    },
-                    verdict: { type: Type.STRING }
-                },
-                required: ["overview", "ratings", "pros", "cons", "verdict"]
+                properties: schemaProperties,
+                required: requiredFields
             },
             thinkingConfig: { thinkingBudget: 512 }
         }
     }));
 
-    const parsed = parseJsonResponse<{ overview: string; ratings: RatingCategory[]; pros: string[]; cons: string[]; verdict: string }>(response.text);
+    const parsed = parseJsonResponse<{ overview: string; ratings?: RatingCategory[]; pros?: string[]; cons?: string[]; verdict?: string }>(response.text);
 
-    const parsedPros = Array.isArray(parsed.pros) ? parsed.pros : [];
-    const parsedCons = Array.isArray(parsed.cons) ? parsed.cons : [];
-    const fallbackPros = Array.isArray(research.pros) ? research.pros : [];
-    const fallbackProsFromFeatures = Array.isArray(research.keyFeatures)
-        ? research.keyFeatures.map(f => String(f)).filter(Boolean)
-        : [];
+    // Handle pros/cons only if enabled
+    let safePros: string[] = [];
+    let safeCons: string[] = [];
+    
+    if (includeProsCons) {
+        const parsedPros = Array.isArray(parsed.pros) ? parsed.pros : [];
+        const parsedCons = Array.isArray(parsed.cons) ? parsed.cons : [];
+        const fallbackPros = Array.isArray(research.pros) ? research.pros : [];
+        const fallbackProsFromFeatures = Array.isArray(research.keyFeatures)
+            ? research.keyFeatures.map(f => String(f)).filter(Boolean)
+            : [];
 
-    const fallbackProsFromInfosheet = buildFallbackProsFromInfosheet(research, config.language);
+        const fallbackProsFromInfosheet = buildFallbackProsFromInfosheet(research, config.language);
 
-    const safePros =
-        parsedPros.length > 0
-            ? parsedPros
-            : (
-                fallbackPros.length > 0
-                    ? fallbackPros
-                    : (fallbackProsFromFeatures.length > 0 ? fallbackProsFromFeatures.slice(0, 3) : fallbackProsFromInfosheet)
-            );
+        safePros =
+            parsedPros.length > 0
+                ? parsedPros
+                : (
+                    fallbackPros.length > 0
+                        ? fallbackPros
+                        : (fallbackProsFromFeatures.length > 0 ? fallbackProsFromFeatures.slice(0, 3) : fallbackProsFromInfosheet)
+                );
 
-    const safeCons = safePros.length > parsedCons.length
-        ? parsedCons
-        : parsedCons.slice(0, Math.max(0, safePros.length - 1));
+        safeCons = safePros.length > parsedCons.length
+            ? parsedCons
+            : parsedCons.slice(0, Math.max(0, safePros.length - 1));
+    }
 
-    const overviewHtml = ensureInTextCitations(parsed.overview, research.citations, 2);
-    const verdictHtml = ensureInTextCitations(parsed.verdict, research.citations, 1);
+    const overviewHtml = ensureInTextCitations(parsed.overview || '', research.citations, 2);
+    const verdictHtml = includeVerdict ? ensureInTextCitations(parsed.verdict || '', research.citations, 1) : '';
 
     return {
         platformName: research.name,
         overview: overviewHtml,
         infosheet: research.infosheet,
-        ratings: parsed.ratings || [],
+        ratings: includeRatings ? (parsed.ratings || []) : [],
         pros: safePros,
         cons: safeCons,
         verdict: verdictHtml,

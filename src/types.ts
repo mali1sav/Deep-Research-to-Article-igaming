@@ -142,6 +142,7 @@ export interface AdditionalSection {
 
 export interface ArticleConfig {
     vertical: VerticalType;  // 'gambling' | 'crypto' - determines infosheet fields, scoring, prompts
+    verticalConfirmed?: boolean;  // User must explicitly select vertical before research
     language: Language;
     introNarrative: string;
     introWordCount: number;

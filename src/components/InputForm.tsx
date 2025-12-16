@@ -215,17 +215,23 @@ export const InputForm: React.FC<InputFormProps> = ({
 
     return (
         <div className="space-y-6">
-            {/* Vertical Selector */}
-            <div className="flex items-center gap-4 bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-200">
-                <span className="text-sm font-medium text-indigo-700">Content Vertical:</span>
+            {/* Vertical Selector - Required */}
+            <div className={`flex items-center gap-4 p-4 rounded-xl border-2 ${
+                config.verticalConfirmed 
+                    ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200' 
+                    : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300'
+            }`}>
+                <span className="text-sm font-medium text-indigo-700">
+                    Content Vertical: <span className="text-red-500">*</span>
+                </span>
                 <div className="flex gap-2">
                     {verticalOptions.map(option => (
                         <button
                             key={option.value}
                             type="button"
-                            onClick={() => setConfig({ ...config, vertical: option.value })}
+                            onClick={() => setConfig({ ...config, vertical: option.value, verticalConfirmed: true })}
                             className={`px-4 py-2 rounded-lg font-medium transition ${
-                                config.vertical === option.value
+                                config.vertical === option.value && config.verticalConfirmed
                                     ? 'bg-indigo-600 text-white shadow-md'
                                     : 'bg-white text-indigo-600 border border-indigo-300 hover:bg-indigo-50'
                             }`}
@@ -234,9 +240,15 @@ export const InputForm: React.FC<InputFormProps> = ({
                         </button>
                     ))}
                 </div>
-                <span className="text-xs text-indigo-500 ml-auto">
-                    {verticalConfig.description}
-                </span>
+                {config.verticalConfirmed ? (
+                    <span className="text-xs text-indigo-500 ml-auto">
+                        {verticalConfig.description}
+                    </span>
+                ) : (
+                    <span className="text-xs text-amber-600 ml-auto font-medium">
+                        ⚠️ Please select a vertical before starting research
+                    </span>
+                )}
             </div>
 
             {/* Top Bar: Mode Toggle + Clear All */}
