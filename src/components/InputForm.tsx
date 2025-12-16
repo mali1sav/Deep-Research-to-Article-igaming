@@ -240,14 +240,14 @@ export const InputForm: React.FC<InputFormProps> = ({
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div>
-                            <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                            <label htmlFor="language" className="block text-xs font-medium text-gray-700 mb-1">Language</label>
                             <select 
                                 id="language" 
                                 value={config.language} 
                                 onChange={(e) => setConfig({ ...config, language: e.target.value as Language })}
-                                className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value={Language.ENGLISH}>English</option>
                                 <option value={Language.THAI}>Thai</option>
@@ -257,7 +257,7 @@ export const InputForm: React.FC<InputFormProps> = ({
                             </select>
                         </div>
                         <div>
-                            <label htmlFor="introWordCount" className="block text-sm font-medium text-gray-700 mb-2">Intro Words</label>
+                            <label htmlFor="introWordCount" className="block text-xs font-medium text-gray-700 mb-1">Intro Words</label>
                             <input 
                                 type="number" 
                                 id="introWordCount" 
@@ -265,31 +265,42 @@ export const InputForm: React.FC<InputFormProps> = ({
                                 min="50" 
                                 step="50" 
                                 onChange={(e) => setConfig({ ...config, introWordCount: parseInt(e.target.value, 10) || 200 })}
-                                className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500" 
+                                className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500" 
                             />
                         </div>
                         <div>
-                            <label htmlFor="targetSectionCount" className="block text-sm font-medium text-gray-700 mb-2">
-                                Sections Count
-                            </label>
+                            <label htmlFor="targetSectionCount" className="block text-xs font-medium text-gray-700 mb-1">Sections</label>
                             <select 
                                 id="targetSectionCount" 
                                 value={config.targetSectionCount || 5} 
                                 onChange={(e) => setConfig({ ...config, targetSectionCount: parseInt(e.target.value, 10) })}
-                                className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value={5}>5 sections</option>
-                                <option value={6}>6 sections</option>
-                                <option value={7}>7 sections</option>
-                                <option value={8}>8 sections</option>
-                                <option value={9}>9 sections</option>
-                                <option value={10}>10 sections</option>
+                                <option value={5}>5</option>
+                                <option value={6}>6</option>
+                                <option value={7}>7</option>
+                                <option value={8}>8</option>
+                                <option value={9}>9</option>
+                                <option value={10}>10</option>
                             </select>
-                            {(config.targetSectionCount || 5) > 5 && (
-                                <p className="text-xs text-amber-600 mt-1">⚠️ Run SERP Analysis first for extra sections</p>
-                            )}
+                        </div>
+                        <div>
+                            <label htmlFor="writingModel" className="block text-xs font-medium text-gray-700 mb-1">Writing Model</label>
+                            <select 
+                                id="writingModel" 
+                                value={config.writingModel} 
+                                onChange={(e) => setConfig({ ...config, writingModel: e.target.value as WritingModel })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value={WritingModel.GPT_5_2}>GPT 5.2</option>
+                                <option value={WritingModel.GEMINI_2_5_PRO}>Gemini 2.5 Pro</option>
+                                <option value={WritingModel.CLAUDE_SONNET_4_5}>Claude Sonnet 4.5</option>
+                            </select>
                         </div>
                     </div>
+                    {(config.targetSectionCount || 5) > 5 && (
+                        <p className="text-xs text-amber-600 mt-1">⚠️ Run SERP Analysis first for extra sections</p>
+                    )}
 
                     {/* Article Structure Toggles */}
                     <div className="pt-4 border-t border-gray-200">
@@ -363,33 +374,21 @@ export const InputForm: React.FC<InputFormProps> = ({
                 </div>
             </div>
 
-            {/* Section 2: Writing Settings */}
+            {/* Section 2: Writing & SEO Settings */}
             <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="mr-2">✍️</span> Writing Settings
+                    <span className="mr-2">✍️</span> Writing & SEO Settings
                 </h2>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="writingModel" className="block text-sm font-medium text-gray-700 mb-2">Writing Model</label>
-                        <select 
-                            id="writingModel" 
-                            value={config.writingModel} 
-                            onChange={(e) => setConfig({ ...config, writingModel: e.target.value as WritingModel })}
-                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value={WritingModel.GPT_5_2}>GPT 5.2</option>
-                            <option value={WritingModel.GEMINI_2_5_PRO}>Gemini 2.5 Pro</option>
-                            <option value={WritingModel.CLAUDE_SONNET_4_5}>Claude Sonnet 4.5</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="toneOfVoice" className="block text-sm font-medium text-gray-700 mb-2">Tone of Voice</label>
+                {/* Compact row: Tone, Primary KW Mentions */}
+                <div className="flex flex-wrap items-end gap-4 mb-4">
+                    <div className="flex-shrink-0">
+                        <label htmlFor="toneOfVoice" className="block text-xs font-medium text-gray-700 mb-1">Tone</label>
                         <select 
                             id="toneOfVoice" 
                             value={config.toneOfVoice} 
                             onChange={(e) => setConfig({ ...config, toneOfVoice: e.target.value as ToneOfVoice })}
-                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            className="bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                         >
                             <option value={ToneOfVoice.PROFESSIONAL}>Professional</option>
                             <option value={ToneOfVoice.FRIENDLY}>Friendly</option>
@@ -398,25 +397,63 @@ export const InputForm: React.FC<InputFormProps> = ({
                             <option value={ToneOfVoice.CUSTOM}>Custom...</option>
                         </select>
                     </div>
-                </div>
-
-                {config.toneOfVoice === ToneOfVoice.CUSTOM && (
-                    <div className="mt-4">
-                        <label htmlFor="customTone" className="block text-sm font-medium text-gray-700 mb-2">Custom Tone Description</label>
-                        <input 
-                            type="text" 
-                            id="customTone" 
-                            placeholder="e.g., Enthusiastic but informative, with a touch of humor..."
-                            value={config.customTone || ''} 
-                            onChange={(e) => setConfig({ ...config, customTone: e.target.value })}
-                            className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
+                    <div className="flex-shrink-0">
+                        <label htmlFor="primaryKeywordCount" className="block text-xs font-medium text-gray-700 mb-1">Primary KW Mentions</label>
+                        <input
+                            type="number"
+                            id="primaryKeywordCount"
+                            min="1"
+                            max="50"
+                            value={config.primaryKeywordCount || 15}
+                            onChange={(e) => setConfig({ ...config, primaryKeywordCount: parseInt(e.target.value) || 15 })}
+                            className="w-20 bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
-                )}
+                    {config.toneOfVoice === ToneOfVoice.CUSTOM && (
+                        <div className="flex-1 min-w-[200px]">
+                            <label htmlFor="customTone" className="block text-xs font-medium text-gray-700 mb-1">Custom Tone</label>
+                            <input 
+                                type="text" 
+                                id="customTone" 
+                                placeholder="e.g., Enthusiastic but informative..."
+                                value={config.customTone || ''} 
+                                onChange={(e) => setConfig({ ...config, customTone: e.target.value })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                    )}
+                </div>
 
-                <div className="mt-4">
-                    <label htmlFor="customInstructions" className="block text-sm font-medium text-gray-700 mb-2">
-                        Custom Instructions <span className="text-gray-400 font-normal">(optional)</span>
+                {/* Target Keywords - needs space */}
+                <div className="mb-4">
+                    <label htmlFor="targetKeywords" className="block text-sm font-medium text-gray-700 mb-1">
+                        🔑 Target Keywords <span className="text-gray-400 font-normal text-xs">(one per line, first = primary)</span>
+                    </label>
+                    <textarea
+                        id="targetKeywords"
+                        rows={3}
+                        className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
+                        placeholder="best online casino thailand&#10;thai casino 2025&#10;online gambling thailand"
+                        value={keywordsRawInput}
+                        onChange={(e) => {
+                            const rawValue = e.target.value;
+                            setKeywordsRawInput(rawValue);
+                            const lines = rawValue.split('\n');
+                            const keywords = lines
+                                .filter(line => line.trim())
+                                .map((line, i) => ({
+                                    keyword: line.trim(),
+                                    isPrimary: i === 0
+                                }));
+                            setConfig({ ...config, targetKeywords: keywords });
+                        }}
+                    />
+                </div>
+
+                {/* Custom Instructions - needs space */}
+                <div className="mb-4">
+                    <label htmlFor="customInstructions" className="block text-sm font-medium text-gray-700 mb-1">
+                        Custom Instructions <span className="text-gray-400 font-normal text-xs">(optional)</span>
                     </label>
                     <textarea
                         id="customInstructions"
@@ -427,114 +464,60 @@ export const InputForm: React.FC<InputFormProps> = ({
                         className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                 </div>
-            </div>
 
-            {/* Section 3: SEO Settings */}
-            <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <span className="mr-2">🎯</span> SEO Settings
-                </h2>
-                
-                <div className="space-y-4">
-                    {/* Target Keywords */}
-                    <div>
-                        <label htmlFor="targetKeywords" className="block text-sm font-medium text-gray-700 mb-2">
-                            🔑 Target Keywords <span className="text-gray-400 font-normal">(one per line, first = primary)</span>
-                        </label>
-                        <textarea
-                            id="targetKeywords"
-                            rows={3}
-                            className="w-full bg-white border border-gray-300 rounded-md p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-gray-400 text-sm"
-                            placeholder="best online casino thailand&#10;thai casino 2025&#10;online gambling thailand"
-                            value={keywordsRawInput}
-                            onChange={(e) => {
-                                const rawValue = e.target.value;
-                                setKeywordsRawInput(rawValue);
-                                const lines = rawValue.split('\n');
-                                const keywords = lines
-                                    .filter(line => line.trim())
-                                    .map((line, i) => ({
-                                        keyword: line.trim(),
-                                        isPrimary: i === 0
-                                    }));
-                                setConfig({ ...config, targetKeywords: keywords });
-                            }}
+                {/* Internal Linking - needs space */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">🔗 Internal Links</label>
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Anchor text..."
+                            value={newLinkAnchor}
+                            onChange={(e) => setNewLinkAnchor(e.target.value)}
+                            className="flex-1 bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                         />
+                        <input
+                            type="text"
+                            placeholder="URL..."
+                            value={newLinkUrl}
+                            onChange={(e) => setNewLinkUrl(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && addInternalLink()}
+                            className="flex-1 bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                            type="button"
+                            onClick={addInternalLink}
+                            aria-label="Add internal link"
+                            title="Add internal link"
+                            className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium transition flex items-center"
+                        >
+                            <PlusIcon />
+                        </button>
                     </div>
 
-                    {/* Primary KW Mentions */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="primaryKeywordCount" className="block text-sm font-medium text-gray-700 mb-2">
-                                Primary KW Mentions
-                            </label>
-                            <input
-                                type="number"
-                                id="primaryKeywordCount"
-                                min="1"
-                                max="50"
-                                value={config.primaryKeywordCount || 15}
-                                onChange={(e) => setConfig({ ...config, primaryKeywordCount: parseInt(e.target.value) || 15 })}
-                                className="w-full bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">Target number of times to mention the primary keyword.</p>
-                        </div>
-                    </div>
-
-                    {/* Internal Linking */}
-                    <div className="pt-4 border-t border-gray-200">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">🔗 Internal Links</label>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                placeholder="Anchor text..."
-                                value={newLinkAnchor}
-                                onChange={(e) => setNewLinkAnchor(e.target.value)}
-                                className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                            />
-                            <input
-                                type="text"
-                                placeholder="URL..."
-                                value={newLinkUrl}
-                                onChange={(e) => setNewLinkUrl(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && addInternalLink()}
-                                className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button
-                                type="button"
-                                onClick={addInternalLink}
-                                aria-label="Add internal link"
-                                title="Add internal link"
-                                className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium transition flex items-center"
-                            >
-                                <PlusIcon />
-                            </button>
-                        </div>
-
-                        {(config.internalLinks?.length || 0) > 0 && (
-                            <div className="mt-3 border border-gray-200 rounded-lg divide-y divide-gray-200">
-                                {config.internalLinks?.map((link, index) => (
-                                    <div key={index} className="flex items-center justify-between p-3">
-                                        <div className="flex-1">
-                                            <span className="font-medium text-blue-600">{link.anchorText}</span>
-                                            <span className="mx-2 text-gray-400">→</span>
-                                            <span className="text-gray-600 text-sm truncate">{link.url}</span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeInternalLink(index)}
-                                            aria-label="Remove link"
-                                            title="Remove link"
-                                            className="p-2 text-red-500 hover:bg-red-50 rounded-md transition"
-                                        >
-                                            <TrashIcon />
-                                        </button>
+                    {(config.internalLinks?.length || 0) > 0 && (
+                        <div className="mt-2 border border-gray-200 rounded-lg divide-y divide-gray-200">
+                            {config.internalLinks?.map((link, index) => (
+                                <div key={index} className="flex items-center justify-between p-2">
+                                    <div className="flex-1 text-sm">
+                                        <span className="font-medium text-blue-600">{link.anchorText}</span>
+                                        <span className="mx-2 text-gray-400">→</span>
+                                        <span className="text-gray-500 truncate">{link.url}</span>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                        <p className="text-xs text-gray-500 mt-2">Links will be automatically inserted where anchor text appears naturally.</p>
-                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeInternalLink(index)}
+                                        aria-label="Remove link"
+                                        title="Remove link"
+                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition"
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Links inserted where anchor text appears naturally.</p>
                 </div>
             </div>
 
