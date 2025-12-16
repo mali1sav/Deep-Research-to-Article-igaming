@@ -202,6 +202,14 @@ export interface FAQ {
     answer: string;
 }
 
+export interface SeoMetadata {
+    title: string;              // SEO-optimized title (50-60 chars)
+    metaDescription: string;    // SEO meta description (150-160 chars)
+    slug: string;               // URL slug in English
+    imagePrompt: string;        // AI image generation prompt in English
+    imageAltText: string;       // Image alt text in user's language
+}
+
 export interface GeneratedArticle {
     intro: string;                          // HTML content
     platformQuickList: {
@@ -213,6 +221,7 @@ export interface GeneratedArticle {
     additionalSections: AdditionalSection[];  // Sections learned from competitors
     faqs: FAQ[];
     allCitations: Citation[];
+    seoMetadata?: SeoMetadata;              // SEO metadata for the article
 }
 
 // --- Workflow State ---
@@ -224,6 +233,7 @@ export type WorkflowPhase =
     | 'generating-reviews'
     | 'generating-additional'  // New phase for additional sections
     | 'generating-faqs'
+    | 'generating-seo'         // SEO metadata generation
     | 'completed'
     | 'error';
 

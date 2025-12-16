@@ -514,6 +514,21 @@ const App: React.FC = () => {
         let html = useShortcodes 
             ? `<!-- Article Content - WordPress Ultimate Shortcode Format -->\n`
             : `<!-- Article Content - Plain HTML -->\n`;
+        
+        // SEO Metadata block at the top
+        if (generatedArticle.seoMetadata) {
+            const seo = generatedArticle.seoMetadata;
+            html += `<!--
+=== SEO METADATA ===
+Title: ${seo.title}
+Meta Description: ${seo.metaDescription}
+Slug: ${seo.slug}
+Image Prompt: ${seo.imagePrompt}
+Image Alt Text: ${seo.imageAltText}
+==================
+-->\n\n`;
+        }
+        
         html += generatedArticle.intro + '\n\n';
         
         // Platform quick list
@@ -865,6 +880,36 @@ const App: React.FC = () => {
                                     Download HTML
                                 </button>
                             </div>
+
+                            {/* SEO Metadata */}
+                            {generatedArticle.seoMetadata && (
+                                <SectionCard title="📊 SEO Metadata" icon="">
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div className="bg-gray-50 p-3 rounded-lg">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Title</label>
+                                            <p className="text-sm font-medium text-gray-900 mt-1">{generatedArticle.seoMetadata.title}</p>
+                                            <span className="text-xs text-gray-400">{generatedArticle.seoMetadata.title.length} characters</span>
+                                        </div>
+                                        <div className="bg-gray-50 p-3 rounded-lg">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Meta Description</label>
+                                            <p className="text-sm text-gray-700 mt-1">{generatedArticle.seoMetadata.metaDescription}</p>
+                                            <span className="text-xs text-gray-400">{generatedArticle.seoMetadata.metaDescription.length} characters</span>
+                                        </div>
+                                        <div className="bg-gray-50 p-3 rounded-lg">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Slug (English)</label>
+                                            <code className="block text-sm text-purple-600 mt-1 font-mono">/{generatedArticle.seoMetadata.slug}/</code>
+                                        </div>
+                                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                            <label className="text-xs font-semibold text-blue-600 uppercase tracking-wide">🎨 Image Prompt (English)</label>
+                                            <p className="text-sm text-gray-700 mt-1 italic">{generatedArticle.seoMetadata.imagePrompt}</p>
+                                        </div>
+                                        <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                                            <label className="text-xs font-semibold text-green-600 uppercase tracking-wide">Image Alt Text ({config.language})</label>
+                                            <p className="text-sm text-gray-700 mt-1">{generatedArticle.seoMetadata.imageAltText}</p>
+                                        </div>
+                                    </div>
+                                </SectionCard>
+                            )}
 
                             {/* Introduction */}
                             <SectionCard title={uiText.introduction} icon="📄">

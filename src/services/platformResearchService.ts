@@ -15,7 +15,8 @@ import {
     ToneOfVoice,
     TargetKeyword,
     AdditionalSection,
-    VerticalType
+    VerticalType,
+    SeoMetadata
 } from '../types';
 import { getVerticalConfig, VerticalConfig } from '../config/verticals';
 
@@ -1041,6 +1042,113 @@ Rules:
     }));
 };
 
+// --- SEO Metadata Generation ---
+
+const getLanguageName = (lang: Language): string => {
+    const names: Record<Language, string> = {
+        [Language.ENGLISH]: 'English',
+        [Language.THAI]: 'Thai',
+        [Language.VIETNAMESE]: 'Vietnamese',
+        [Language.JAPANESE]: 'Japanese',
+        [Language.KOREAN]: 'Korean'
+    };
+    return names[lang] || 'English';
+};
+
+export const generateSeoMetadata = async (
+    platformResearch: PlatformResearch[],
+    config: ArticleConfig
+): Promise<SeoMetadata> => {
+    const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
+    const platformNames = platformResearch.map(p => p.name).join(', ');
+    const languageName = getLanguageName(config.language);
+    const primaryKeyword = config.targetKeywords?.[0]?.keyword || config.introNarrative || platformNames;
+    
+    const prompt = `Generate SEO metadata for an evergreen ${verticalConfig.name.toLowerCase()} review article about: ${platformNames}
+
+**Article Context:** ${config.introNarrative || `Comprehensive review of ${platformNames}`}
+**Primary Keyword:** ${primaryKeyword}
+**Content Vertical:** ${verticalConfig.name}
+**Target Language for Title, Meta Description, Alt Text:** ${languageName}
+
+Generate the following SEO-optimized metadata:
+
+1. **title**: SEO-optimized page title (50-60 characters max)
+   - Include primary keyword near the beginning
+   - Make it compelling and click-worthy
+   - Include current year for freshness signals
+   - Write in ${languageName}
+
+2. **metaDescription**: Meta description (150-160 characters max)
+   - Summarize key value proposition
+   - Include primary keyword naturally
+   - Add a call-to-action element
+   - Write in ${languageName}
+
+3. **slug**: URL-friendly slug (ALWAYS in English, regardless of target language)
+   - Lowercase, hyphenated
+   - Include main keyword
+   - Keep under 60 characters
+   - Example format: "best-crypto-exchanges-2024" or "top-online-casinos-review"
+
+4. **imagePrompt**: AI image generation prompt (ALWAYS in English)
+   - Describe a professional, relevant featured image
+   - Include style guidance (modern, professional, etc.)
+   - Mention composition and mood
+   - Should work for ${verticalConfig.name.toLowerCase()} content
+
+5. **imageAltText**: Descriptive alt text for accessibility and SEO
+   - Write in ${languageName}
+   - Describe the image content
+   - Include primary keyword naturally
+   - Keep under 125 characters
+
+Return JSON:
+{
+  "title": "...",
+  "metaDescription": "...",
+  "slug": "...",
+  "imagePrompt": "...",
+  "imageAltText": "..."
+}`;
+
+    const response = await withRetry(() => ai.models.generateContent({
+        model: textModel,
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING },
+                    metaDescription: { type: Type.STRING },
+                    slug: { type: Type.STRING },
+                    imagePrompt: { type: Type.STRING },
+                    imageAltText: { type: Type.STRING }
+                },
+                required: ["title", "metaDescription", "slug", "imagePrompt", "imageAltText"]
+            }
+        }
+    }));
+
+    const parsed = parseJsonResponse<SeoMetadata>(response.text);
+    
+    // Ensure slug is lowercase and properly formatted
+    const cleanSlug = (parsed.slug || 'article')
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+    
+    return {
+        title: parsed.title || '',
+        metaDescription: parsed.metaDescription || '',
+        slug: cleanSlug,
+        imagePrompt: parsed.imagePrompt || '',
+        imageAltText: parsed.imageAltText || ''
+    };
+};
+
 // --- SERP Competitor Analysis using Gemini with Google Search Grounding ---
 
 export interface SerpCompetitor {
@@ -1445,6 +1553,10 @@ export const generateFullArticle = async (
         faqs = await generateFAQs(platformResearch, config);
     }
 
+    // Generate SEO metadata
+    onProgress?.('generating-seo', 'Generating SEO metadata...');
+    const seoMetadata = await generateSeoMetadata(platformResearch, config);
+
     return {
         intro,
         platformQuickList,
@@ -1452,7 +1564,8 @@ export const generateFullArticle = async (
         platformReviews,
         additionalSections,
         faqs,
-        allCitations
+        allCitations,
+        seoMetadata
     };
 };
 
