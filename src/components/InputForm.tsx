@@ -651,11 +651,11 @@ export const InputForm: React.FC<InputFormProps> = ({
                     )}
 
                     {config.platforms.length === 0 && (
-                        <p className="text-sm text-gray-500 italic">No platforms added yet. Add 3-10 platforms to review.</p>
+                        <p className="text-sm text-gray-500 italic">No platforms added yet. Recommended: 5-7 platforms for best results.</p>
                     )}
 
                     <p className="text-xs text-blue-600 flex items-center">
-                        💡 Tip: Add 3-10 platforms. Research runs in parallel for faster results.
+                        💡 Recommended: <strong className="mx-1">5-7 platforms</strong> for useful comparison tables. Fewer = weak comparison. More = slower processing.
                     </p>
                 </div>
 

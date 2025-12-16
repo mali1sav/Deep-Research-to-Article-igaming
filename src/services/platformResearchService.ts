@@ -510,21 +510,44 @@ Format your response as JSON:
     }
 };
 
+/**
+ * Research platforms with controlled concurrency to avoid API overload.
+ * Processes in batches of 3 with delays between batches.
+ * Recommended: 5-7 platforms for best balance of comparison quality and stability.
+ */
 export const researchAllPlatforms = async (
     platformNames: string[],
     onProgress?: (completed: number, total: number, platformName: string) => void
 ): Promise<PlatformResearch[]> => {
     const total = platformNames.length;
     let completed = 0;
-
-    const promises = platformNames.map(async (name) => {
-        const result = await researchPlatform(name);
-        completed++;
-        onProgress?.(completed, total, name);
-        return result;
-    });
-
-    return Promise.all(promises);
+    const results: PlatformResearch[] = [];
+    
+    // Process in batches of 3 to avoid API overload
+    const BATCH_SIZE = 3;
+    const BATCH_DELAY_MS = 2000; // 2 second delay between batches
+    
+    for (let i = 0; i < platformNames.length; i += BATCH_SIZE) {
+        const batch = platformNames.slice(i, i + BATCH_SIZE);
+        
+        // Process batch in parallel
+        const batchPromises = batch.map(async (name) => {
+            const result = await researchPlatform(name);
+            completed++;
+            onProgress?.(completed, total, name);
+            return result;
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        results.push(...batchResults);
+        
+        // Add delay between batches (except for the last batch)
+        if (i + BATCH_SIZE < platformNames.length) {
+            await sleep(BATCH_DELAY_MS);
+        }
+    }
+    
+    return results;
 };
 
 // --- Content Generation Functions ---
