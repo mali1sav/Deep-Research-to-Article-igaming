@@ -238,9 +238,34 @@ export type WorkflowPhase =
     | 'completed'
     | 'error';
 
+// Two-phase workflow: Research → Assemble
+export type AppMode = 'research' | 'assemble';
+
 export interface WorkflowState {
     phase: WorkflowPhase;
     currentPlatformIndex?: number;
     totalPlatforms?: number;
     error?: string;
+}
+
+// Cached review (without ratings - ratings generated at assemble time)
+export interface CachedReview {
+    platformName: string;
+    overview: string;
+    infosheet: PlatformInfosheet;
+    pros: string[];
+    cons: string[];
+    verdict: string;
+    affiliateUrl?: string;
+    citations: Citation[];
+    cachedAt: string;  // ISO timestamp
+}
+
+// Cache summary for UI display
+export interface CacheSummary {
+    researchCount: number;
+    reviewCount: number;
+    platformNames: string[];
+    vertical: VerticalType;
+    canAssemble: boolean;  // true if 3+ reviews cached
 }

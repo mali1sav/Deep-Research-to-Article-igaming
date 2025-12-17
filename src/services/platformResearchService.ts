@@ -639,6 +639,119 @@ export const getCacheInfo = (vertical: VerticalType): { name: string; cachedAt: 
         }));
 };
 
+// --- Review Cache (localStorage) - Phase 2 of two-phase workflow ---
+const REVIEW_CACHE_KEY = 'platform_review_cache';
+
+interface CachedReviewEntry {
+    platformName: string;
+    overview: string;
+    infosheet: PlatformInfosheet;
+    pros: string[];
+    cons: string[];
+    verdict: string;
+    affiliateUrl?: string;
+    citations: Citation[];
+    timestamp: number;
+    vertical: VerticalType;
+}
+
+interface ReviewCache {
+    [platformName: string]: CachedReviewEntry;
+}
+
+const getReviewCache = (): ReviewCache => {
+    try {
+        const cached = localStorage.getItem(REVIEW_CACHE_KEY);
+        return cached ? JSON.parse(cached) : {};
+    } catch {
+        return {};
+    }
+};
+
+export const saveReviewToCache = (review: PlatformReview, vertical: VerticalType): void => {
+    try {
+        const cache = getReviewCache();
+        cache[review.platformName.toLowerCase()] = {
+            platformName: review.platformName,
+            overview: review.overview,
+            infosheet: review.infosheet,
+            pros: review.pros,
+            cons: review.cons,
+            verdict: review.verdict,
+            affiliateUrl: review.affiliateUrl,
+            citations: review.citations,
+            timestamp: Date.now(),
+            vertical
+        };
+        localStorage.setItem(REVIEW_CACHE_KEY, JSON.stringify(cache));
+    } catch (error) {
+        console.warn('Failed to save review to cache:', error);
+    }
+};
+
+export const getReviewFromCache = (platformName: string, vertical: VerticalType): CachedReviewEntry | null => {
+    try {
+        const cache = getReviewCache();
+        const cached = cache[platformName.toLowerCase()];
+        
+        if (!cached) return null;
+        
+        // Check if cache is expired
+        const ageHours = (Date.now() - cached.timestamp) / (1000 * 60 * 60);
+        if (ageHours > CACHE_EXPIRY_HOURS) return null;
+        
+        // Check if vertical matches
+        if (cached.vertical !== vertical) return null;
+        
+        return cached;
+    } catch {
+        return null;
+    }
+};
+
+export const getCachedReviews = (vertical: VerticalType): CachedReviewEntry[] => {
+    const cache = getReviewCache();
+    return Object.values(cache)
+        .filter(cached => {
+            const ageHours = (Date.now() - cached.timestamp) / (1000 * 60 * 60);
+            return ageHours <= CACHE_EXPIRY_HOURS && cached.vertical === vertical;
+        });
+};
+
+export const clearReviewCache = (): void => {
+    try {
+        localStorage.removeItem(REVIEW_CACHE_KEY);
+    } catch (error) {
+        console.warn('Failed to clear review cache:', error);
+    }
+};
+
+export const clearAllCaches = (): void => {
+    clearResearchCache();
+    clearReviewCache();
+};
+
+// Get combined cache summary for UI
+export const getCacheSummary = (vertical: VerticalType): {
+    researchCount: number;
+    reviewCount: number;
+    researchPlatforms: string[];
+    reviewPlatforms: string[];
+    canAssemble: boolean;
+} => {
+    const researchPlatforms = getCachedPlatformNames(vertical);
+    const cachedReviews = getCachedReviews(vertical);
+    const reviewPlatforms = cachedReviews.map(r => r.platformName);
+    
+    return {
+        researchCount: researchPlatforms.length,
+        reviewCount: reviewPlatforms.length,
+        researchPlatforms,
+        reviewPlatforms,
+        canAssemble: reviewPlatforms.length >= 3
+    };
+};
+
 /**
  * Research platforms with controlled concurrency to avoid API overload.
  * Uses localStorage cache to persist completed research between errors.
@@ -1147,6 +1260,208 @@ Output HTML for overview${includeVerdict ? ' and verdict' : ''} (use <p> tags).`
         verdict: verdictHtml,
         affiliateUrl,
         citations: research.citations
+    };
+};
+
+/**
+ * Generate consistent ratings for ALL platforms together in one call.
+ * This ensures relative scores are meaningful across platforms researched in different sessions.
+ */
+export const generateBatchRatings = async (
+    cachedReviews: { platformName: string; infosheet: PlatformInfosheet; pros: string[]; cons: string[] }[],
+    config: ArticleConfig
+): Promise<{ platformName: string; ratings: RatingCategory[] }[]> => {
+    const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
+    const langInstruction = getLanguageInstruction(config.language, 'review');
+    
+    const scoringCategoriesText = verticalConfig.scoringCategories
+        .map((cat, idx) => `${idx + 1}. ${cat.label} - Score based on: ${cat.description}`)
+        .join('\n');
+    
+    const platformSummaries = cachedReviews.map(review => {
+        const info = review.infosheet as Record<string, any>;
+        return `**${review.platformName}:**
+- Pros: ${review.pros.join(', ')}
+- Cons: ${review.cons.join(', ')}
+- Key info: ${Object.entries(info).filter(([k, v]) => v && k !== 'dataSource' && k !== 'retrievedAt').map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('; ')}`;
+    }).join('\n\n');
+
+    const prompt = `You are an impartial ${verticalConfig.name.toLowerCase()} industry analyst. Rate ALL platforms below using the SAME scoring criteria for consistency.
+
+${langInstruction}
+
+**IMPORTANT - COMPARATIVE RATING:**
+You must rate all ${cachedReviews.length} platforms TOGETHER so that scores are RELATIVE and COMPARABLE.
+If Platform A has better security than Platform B, Platform A should score higher in Security.
+Use the full 1-10 scale - not all platforms deserve 7-8.
+
+**SCORING METHODOLOGY (apply strictly to ALL platforms):**
+- **10 (Exceptional):** Industry-leading, best among these platforms
+- **8-9 (Very Good to Excellent):** Above average, strong performance
+- **6-7 (Good to Adequate):** Meets expectations, some limitations
+- **4-5 (Below Average):** Notable gaps or issues
+- **1-3 (Poor):** Significant problems, not recommended
+
+**Rating Categories:**
+${scoringCategoriesText}
+
+**Platforms to Rate:**
+${platformSummaries}
+
+Rate each platform across all ${verticalConfig.scoringCategories.length} categories. Be honest and differentiate between platforms.`;
+
+    const ratingSchema = {
+        type: Type.OBJECT,
+        properties: {
+            platformRatings: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        platformName: { type: Type.STRING },
+                        ratings: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    category: { type: Type.STRING },
+                                    score: { type: Type.NUMBER }
+                                },
+                                required: ['category', 'score']
+                            }
+                        }
+                    },
+                    required: ['platformName', 'ratings']
+                }
+            }
+        },
+        required: ['platformRatings']
+    };
+
+    const response = await withRetry(() => ai.models.generateContent({
+        model: textModel,
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: ratingSchema,
+            thinkingConfig: { thinkingBudget: 512 }
+        }
+    }));
+
+    const parsed = parseJsonResponse<{ platformRatings: { platformName: string; ratings: RatingCategory[] }[] }>(response.text);
+    return parsed.platformRatings || [];
+};
+
+/**
+ * Assemble article from cached reviews - Phase 2 of two-phase workflow.
+ * Generates batch ratings, comparison table, intro, and FAQs from cached data.
+ */
+export const assembleArticleFromCache = async (
+    config: ArticleConfig,
+    onProgress?: (phase: string, detail?: string) => void
+): Promise<GeneratedArticle | null> => {
+    const vertical = config.vertical || 'gambling';
+    const cachedReviews = getCachedReviews(vertical);
+    
+    if (cachedReviews.length < 3) {
+        console.warn('Not enough cached reviews to assemble article');
+        return null;
+    }
+    
+    // Get cached research for citations and full data
+    const researchCache = getCachedPlatformNames(vertical);
+    const allCitations: Citation[] = [];
+    const platformResearch: PlatformResearch[] = [];
+    
+    for (const review of cachedReviews) {
+        allCitations.push(...review.citations);
+        // Get original research if available
+        const research = getFromResearchCache(review.platformName, vertical);
+        if (research) {
+            platformResearch.push(research);
+        }
+    }
+    
+    const dedupedCitations = deduplicateCitations(allCitations);
+    
+    // Step 1: Generate batch ratings for consistency
+    onProgress?.('generating-ratings', 'Rating all platforms together...');
+    let batchRatings: { platformName: string; ratings: RatingCategory[] }[] = [];
+    
+    if (config.includeSections?.platformRatings !== false) {
+        batchRatings = await generateBatchRatings(
+            cachedReviews.map(r => ({
+                platformName: r.platformName,
+                infosheet: r.infosheet,
+                pros: r.pros,
+                cons: r.cons
+            })),
+            config
+        );
+    }
+    
+    // Step 2: Build platform reviews with consistent ratings
+    const platformReviews: PlatformReview[] = cachedReviews.map(cached => {
+        const ratings = batchRatings.find(r => 
+            r.platformName.toLowerCase() === cached.platformName.toLowerCase()
+        )?.ratings || [];
+        
+        const platformInput = config.platforms.find(p => 
+            p.name.toLowerCase() === cached.platformName.toLowerCase()
+        );
+        
+        return {
+            platformName: cached.platformName,
+            overview: cached.overview,
+            infosheet: cached.infosheet,
+            ratings,
+            pros: cached.pros,
+            cons: cached.cons,
+            verdict: cached.verdict,
+            affiliateUrl: platformInput?.affiliateUrl || cached.affiliateUrl,
+            citations: cached.citations
+        };
+    });
+    
+    // Step 3: Generate platform quick list
+    const platformQuickList = cachedReviews.map(r => ({
+        name: r.platformName,
+        shortDescription: r.overview.replace(/<[^>]*>/g, '').substring(0, 150) + '...'
+    }));
+    
+    // Step 4: Generate introduction
+    onProgress?.('generating-intro', 'Writing introduction...');
+    const intro = await generateIntroduction(config, platformQuickList, dedupedCitations);
+    
+    // Step 5: Generate comparison table
+    let comparisonTable: ComparisonTableRow[] = [];
+    if (config.includeSections?.comparisonTable !== false && platformResearch.length > 0) {
+        onProgress?.('generating-comparison', 'Building comparison table...');
+        comparisonTable = await generateComparisonTable(platformResearch, config.language, vertical);
+    }
+    
+    // Step 6: Generate FAQs
+    let faqs: FAQ[] = [];
+    if (config.includeSections?.faqs !== false && platformResearch.length > 0) {
+        onProgress?.('generating-faqs', 'Generating FAQs...');
+        faqs = await generateFAQs(platformResearch, config);
+    }
+    
+    // Step 7: Generate SEO metadata
+    onProgress?.('generating-seo', 'Generating SEO metadata...');
+    const seoMetadata = platformResearch.length > 0 
+        ? await generateSeoMetadata(platformResearch, config)
+        : undefined;
+    
+    return {
+        intro,
+        platformQuickList,
+        comparisonTable,
+        platformReviews,
+        additionalSections: [],
+        faqs,
+        allCitations: dedupedCitations,
+        seoMetadata
     };
 };
 
@@ -1677,6 +1992,7 @@ export const generateFullArticle = async (
 
     onProgress?.('generating-reviews');
     const platformReviews: PlatformReview[] = [];
+    const vertical = config.vertical || 'gambling';
     for (let i = 0; i < platformResearch.length; i++) {
         const research = platformResearch[i];
         const platformInput = config.platforms.find(p => p.name === research.name);
@@ -1688,6 +2004,9 @@ export const generateFullArticle = async (
             platformInput?.affiliateUrl
         );
         platformReviews.push(review);
+        
+        // Save review to cache for two-phase workflow
+        saveReviewToCache(review, vertical);
     }
 
     // Generate additional sections if targetSectionCount > 5
@@ -1786,6 +2105,7 @@ export const generateReviewsOnly = async (
     // Generate reviews for all platforms
     onProgress?.('generating-reviews', 'Generating platform reviews...');
     const platformReviews: PlatformReview[] = [];
+    const vertical = config.vertical || 'gambling';
     
     for (let i = 0; i < platformResearch.length; i++) {
         const research = platformResearch[i];
@@ -1798,6 +2118,9 @@ export const generateReviewsOnly = async (
             platformInput?.affiliateUrl
         );
         platformReviews.push(review);
+        
+        // Save review to cache for two-phase workflow
+        saveReviewToCache(review, vertical);
     }
 
     return {

@@ -12,7 +12,14 @@ import {
     generateReviewsOnly,
     SerpCompetitor,
     clearResearchCache,
-    getCachedPlatformNames
+    clearReviewCache,
+    clearAllCaches,
+    getCachedPlatformNames,
+    getCacheSummary,
+    getCachedReviews,
+    saveReviewToCache,
+    assembleArticleFromCache,
+    generatePlatformReview
 } from './services/platformResearchService';
 import { 
     ArticleConfig, 
@@ -20,6 +27,7 @@ import {
     PlatformResearch, 
     GeneratedArticle,
     WorkflowPhase,
+    AppMode,
     WritingModel,
     SeoMode,
     ToneOfVoice
@@ -176,6 +184,16 @@ const App: React.FC = () => {
     const [workflowPhase, setWorkflowPhase] = useState<WorkflowPhase>('idle');
     const [loadingMessage, setLoadingMessage] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
+    
+    // Two-phase workflow mode
+    const [appMode, setAppMode] = useState<AppMode>('research');
+    const [cacheSummary, setCacheSummary] = useState<{
+        researchCount: number;
+        reviewCount: number;
+        researchPlatforms: string[];
+        reviewPlatforms: string[];
+        canAssemble: boolean;
+    }>({ researchCount: 0, reviewCount: 0, researchPlatforms: [], reviewPlatforms: [], canAssemble: false });
 
     // Research state
     const [platformResearch, setPlatformResearch] = useState<PlatformResearch[]>([]);
@@ -186,6 +204,12 @@ const App: React.FC = () => {
     // SERP Competitor Analysis state
     const [serpCompetitors, setSerpCompetitors] = useState<SerpCompetitor[]>([]);
     const [serpAnalysisLoading, setSerpAnalysisLoading] = useState(false);
+    
+    // Update cache summary when vertical changes or on mount
+    useEffect(() => {
+        const summary = getCacheSummary(config.vertical || 'gambling');
+        setCacheSummary(summary);
+    }, [config.vertical]);
 
 
     // Handler for SERP competitor analysis
@@ -233,8 +257,23 @@ const App: React.FC = () => {
 
     const handleClearResearchCache = useCallback(() => {
         clearResearchCache();
+        const summary = getCacheSummary(config.vertical || 'gambling');
+        setCacheSummary(summary);
         alert('Research cache cleared. Next research will fetch fresh data.');
-    }, []);
+    }, [config.vertical]);
+    
+    const handleClearAllCaches = useCallback(() => {
+        clearAllCaches();
+        const summary = getCacheSummary(config.vertical || 'gambling');
+        setCacheSummary(summary);
+        alert('All caches cleared (research + reviews).');
+    }, [config.vertical]);
+    
+    // Refresh cache summary after operations
+    const refreshCacheSummary = useCallback(() => {
+        const summary = getCacheSummary(config.vertical || 'gambling');
+        setCacheSummary(summary);
+    }, [config.vertical]);
 
     const resetState = () => {
         setWorkflowPhase('idle');
@@ -366,8 +405,57 @@ const App: React.FC = () => {
             console.error(e);
             setError(e.message || 'An unexpected error occurred.');
             setWorkflowPhase('error');
+        } finally {
+            refreshCacheSummary();
         }
-    }, [config]);
+    }, [config, refreshCacheSummary]);
+
+    // Phase 2: Assemble article from cached reviews
+    const handleAssembleArticle = useCallback(async () => {
+        if (!cacheSummary.canAssemble) {
+            setError('Need at least 3 cached reviews to assemble an article. Continue researching more platforms.');
+            return;
+        }
+        
+        if (!config.verticalConfirmed) {
+            setError('Please confirm the Content Vertical before assembling.');
+            return;
+        }
+
+        resetState();
+        setWorkflowPhase('generating-intro');
+        setAppMode('assemble');
+
+        try {
+            setLoadingMessage('Assembling article from cached reviews...');
+            
+            const article = await assembleArticleFromCache(
+                config,
+                (phase, detail) => {
+                    if (phase === 'generating-ratings') setWorkflowPhase('generating-reviews');
+                    else if (phase === 'generating-intro') setWorkflowPhase('generating-intro');
+                    else if (phase === 'generating-comparison') setWorkflowPhase('generating-comparison');
+                    else if (phase === 'generating-faqs') setWorkflowPhase('generating-faqs');
+                    else if (phase === 'generating-seo') setWorkflowPhase('generating-seo');
+                    
+                    if (detail) setLoadingMessage(detail);
+                }
+            );
+
+            if (article) {
+                setGeneratedArticle(article);
+                setWorkflowPhase('completed');
+            } else {
+                setError('Failed to assemble article. Not enough cached data.');
+                setWorkflowPhase('error');
+            }
+
+        } catch (e: any) {
+            console.error(e);
+            setError(e.message || 'An unexpected error occurred during assembly.');
+            setWorkflowPhase('error');
+        }
+    }, [config, cacheSummary.canAssemble, refreshCacheSummary]);
 
     const handleCopyAllHtml = useCallback(() => {
         if (!generatedArticle) return;
@@ -852,6 +940,83 @@ Image Alt Text: ${seo.imageAltText}
                         serpAnalysisLoading={serpAnalysisLoading}
                         onAnalyzeSerpCompetitors={handleAnalyzeSerpCompetitors}
                     />
+
+                    {/* Two-Phase Workflow: Cache Summary & Assemble Button */}
+                    {(cacheSummary.researchCount > 0 || cacheSummary.reviewCount > 0) && workflowPhase === 'idle' && (
+                        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                <span className="mr-2">📦</span> Cached Data ({config.vertical})
+                            </h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                {/* Research Cache */}
+                                <div className="bg-blue-50 rounded-lg p-4">
+                                    <h4 className="text-sm font-semibold text-blue-800 mb-2">
+                                        Research Data: {cacheSummary.researchCount} platforms
+                                    </h4>
+                                    {cacheSummary.researchPlatforms.length > 0 && (
+                                        <div className="flex flex-wrap gap-1">
+                                            {cacheSummary.researchPlatforms.map((name, i) => (
+                                                <span key={i} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                                    {name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* Review Cache */}
+                                <div className="bg-purple-50 rounded-lg p-4">
+                                    <h4 className="text-sm font-semibold text-purple-800 mb-2">
+                                        Generated Reviews: {cacheSummary.reviewCount} platforms
+                                    </h4>
+                                    {cacheSummary.reviewPlatforms.length > 0 && (
+                                        <div className="flex flex-wrap gap-1">
+                                            {cacheSummary.reviewPlatforms.map((name, i) => (
+                                                <span key={i} className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                                                    {name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {/* Assemble Button */}
+                            <div className="flex items-center justify-between border-t pt-4">
+                                <div className="text-sm text-gray-600">
+                                    {cacheSummary.canAssemble ? (
+                                        <span className="text-green-600 font-medium">
+                                            ✅ Ready to assemble article ({cacheSummary.reviewCount} reviews)
+                                        </span>
+                                    ) : (
+                                        <span className="text-amber-600">
+                                            ⚠️ Need at least 3 reviews to assemble (have {cacheSummary.reviewCount})
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleClearAllCaches}
+                                        className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition"
+                                    >
+                                        Clear All Caches
+                                    </button>
+                                    <button
+                                        onClick={handleAssembleArticle}
+                                        disabled={!cacheSummary.canAssemble || isLoading}
+                                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                                            cacheSummary.canAssemble && !isLoading
+                                                ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        }`}
+                                    >
+                                        Assemble Article from Cache
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Error Display */}
                     {error && (
