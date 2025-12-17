@@ -358,8 +358,12 @@ IMPORTANT: Each link should appear exactly 1 time total across all sections.\n`;
 };
 
 const buildCitationAnchor = (citation: Citation): string => {
-    // Use Google Search URL since AI-generated sourceUrls are often hallucinated/404
-    return `<a href="${citation.googleSearchUrl}" target="_blank" rel="noopener noreferrer">(${citation.domain})</a>`;
+    // Use real URL from Perplexity when available, otherwise fall back to Google Search
+    const hasRealUrl = citation.sourceUrl && 
+                       !citation.sourceUrl.includes('google.com/search') &&
+                       citation.sourceUrl.startsWith('http');
+    const href = hasRealUrl ? citation.sourceUrl : citation.googleSearchUrl;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer">(${citation.domain})</a>`;
 };
 
 const ensureInTextCitations = (html: string, citations: Citation[], minCount: number): string => {
@@ -580,10 +584,41 @@ export const researchPlatform = async (
         }
 
         const parsed = parseJsonResponse<ResearchResponse>(finalContent);
-        const citations = extractCitationsFromSources(parsed.sources || []);
+        
+        // For Perplexity Sonar, use real URLs from citations; for Tongyi, use parsed sources
+        let citations: Citation[];
+        let allSources: string[];
+        
+        if (researchModel === ResearchModel.PERPLEXITY_SONAR && perplexityCitations.length > 0) {
+            // Perplexity returns verified real URLs - use them directly
+            citations = perplexityCitations.map(url => {
+                try {
+                    const urlObj = new URL(url);
+                    const domain = urlObj.hostname.replace('www.', '');
+                    return {
+                        title: domain,
+                        sourceUrl: url,  // Real verified URL from Perplexity
+                        googleSearchUrl: buildGoogleSearchUrl(domain),
+                        domain
+                    };
+                } catch {
+                    return {
+                        title: url,
+                        sourceUrl: url,
+                        googleSearchUrl: buildGoogleSearchUrl(url),
+                        domain: url
+                    };
+                }
+            });
+            allSources = perplexityCitations;
+        } else {
+            // Tongyi or fallback - use parsed sources (may be hallucinated)
+            citations = extractCitationsFromSources(parsed.sources || []);
+            allSources = parsed.sources || [];
+        }
         
         // Extract source domains for attribution
-        const sourceDomains = (parsed.sources || [])
+        const sourceDomains = allSources
             .map(s => {
                 try {
                     const url = new URL(s.startsWith('http') ? s : `https://${s}`);
@@ -1100,6 +1135,10 @@ export const generateComparisonTable = async (
         .map(c => c.label)
         .join(', ');
 
+    // Build dynamic column keys for JSON example
+    const columnKeys = verticalConfig.infosheetFields.slice(0, 3).map(f => f.key);
+    const exampleRow = `{ "platformName": "...", ${columnKeys.map(k => `"${k}": "..."`).join(', ')}, "rating": "⭐⭐⭐⭐" }`;
+
     const prompt = `Based on the following ${verticalConfig.name.toLowerCase()} platform data, generate a comparison table with ratings.
 
 ${langInstruction}
@@ -1107,7 +1146,7 @@ ${langInstruction}
 **Platform Data:**
 ${JSON.stringify(researchData, null, 2)}
 
-**Columns to include:**
+**Columns to include (use these exact field names from the data):**
 ${columnDescriptions}
 - rating: Overall star rating
 
@@ -1130,7 +1169,7 @@ For platforms WITH valid data, provide all columns with accurate data from the r
 Return JSON format:
 {
   "rows": [
-    { "platformName": "...", "license": "...", "minDeposit": "...", "payoutSpeed": "...", "rating": "⭐⭐⭐⭐" }
+    ${exampleRow}
   ]
 }`;
 
