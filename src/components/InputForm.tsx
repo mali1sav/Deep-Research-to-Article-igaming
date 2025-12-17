@@ -991,9 +991,7 @@ export const InputForm: React.FC<InputFormProps> = ({
                     <span className="ml-2">
                         {isLoading 
                             ? 'Researching...' 
-                            : isReviewOnlyMode 
-                                ? '🔄 Research & Generate Reviews Only'
-                                : 'Research & Generate Article'
+                            : '🔍 Research Platforms'
                         }
                     </span>
                 </button>

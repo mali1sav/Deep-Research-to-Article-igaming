@@ -283,7 +283,7 @@ const App: React.FC = () => {
         setLoadingMessage('');
     };
 
-    // Main workflow handler
+    // Phase 1: Research platforms only (two-phase workflow)
     const handleStartResearch = useCallback(async () => {
         if (!config.verticalConfirmed) {
             setError('Please select a Content Vertical (Gambling or Crypto) before starting research.');
@@ -296,6 +296,7 @@ const App: React.FC = () => {
 
         resetState();
         setWorkflowPhase('researching');
+        setAppMode('research');
 
         try {
             // Initialize platform research state
@@ -321,51 +322,6 @@ const App: React.FC = () => {
             }));
             setPlatformResearch(initialResearch);
 
-            // Review Only Mode - generate only platform reviews
-            if (config.reviewOnlyMode) {
-                setLoadingMessage('Generating reviews only...');
-                
-                const { platformResearch: researchResults, platformReviews } = await generateReviewsOnly(
-                    config,
-                    (phase, detail) => {
-                        setWorkflowPhase(phase as WorkflowPhase);
-                        if (detail) {
-                            setLoadingMessage(detail);
-                        }
-                    }
-                );
-                
-                setPlatformResearch(researchResults);
-                
-                // Create a partial article with only reviews
-                const reviewOnlyArticle: GeneratedArticle = {
-                    intro: '',
-                    platformQuickList: [],
-                    comparisonTable: [],
-                    platformReviews,
-                    additionalSections: [],
-                    faqs: [],
-                    allCitations: researchResults.flatMap(r => r.citations)
-                };
-                
-                setGeneratedArticle(reviewOnlyArticle);
-                setWorkflowPhase('completed');
-                return;
-            }
-
-            // Full Article Mode - run SERP analysis if keyword provided
-            if (config.serpKeyword?.trim()) {
-                setSerpAnalysisLoading(true);
-                setLoadingMessage('Analyzing SERP competitors...');
-                try {
-                    const competitors = await analyzeSerpCompetitors(config.serpKeyword.trim(), 5);
-                    setSerpCompetitors(competitors);
-                } catch (err) {
-                    console.warn('SERP analysis failed:', err);
-                }
-                setSerpAnalysisLoading(false);
-            }
-
             // Research all platforms (uses cache for previously researched platforms)
             setLoadingMessage('Researching platforms...');
             const researchResults = await researchAllPlatforms(
@@ -382,25 +338,30 @@ const App: React.FC = () => {
                 }
             );
             setPlatformResearch(researchResults);
+            
+            // Generate reviews for each platform (saves to cache)
+            setWorkflowPhase('generating-reviews');
+            setLoadingMessage('Generating platform reviews...');
+            
+            for (let i = 0; i < researchResults.length; i++) {
+                const research = researchResults[i];
+                const platformInput = config.platforms.find(p => p.name === research.name);
+                setLoadingMessage(`Generating review: ${research.name} (${i + 1}/${researchResults.length})`);
+                
+                const review = await generatePlatformReview(
+                    research,
+                    config,
+                    platformInput?.affiliateUrl
+                );
+                
+                // Save review to cache
+                saveReviewToCache(review, config.vertical || 'gambling');
+            }
 
-            // Generate full article - pass competitor headings for additional sections
-            setWorkflowPhase('generating-intro');
-            const competitorHeadings = serpCompetitors.flatMap(c => c.headings);
-            const article = await generateFullArticle(
-                config,
-                researchResults,
-                (phase, detail) => {
-                    setWorkflowPhase(phase as WorkflowPhase);
-                    if (detail) {
-                        setLoadingMessage(detail);
-                    }
-                },
-                competitorHeadings
-            );
-
-            setGeneratedArticle(article);
-            setWorkflowPhase('completed');
-
+            // Research complete - show success, don't generate full article
+            setWorkflowPhase('idle');
+            setLoadingMessage('');
+            
         } catch (e: any) {
             console.error(e);
             setError(e.message || 'An unexpected error occurred.');
@@ -941,78 +902,97 @@ Image Alt Text: ${seo.imageAltText}
                         onAnalyzeSerpCompetitors={handleAnalyzeSerpCompetitors}
                     />
 
-                    {/* Two-Phase Workflow: Cache Summary & Assemble Button */}
-                    {(cacheSummary.researchCount > 0 || cacheSummary.reviewCount > 0) && workflowPhase === 'idle' && (
-                        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <span className="mr-2">📦</span> Cached Data ({config.vertical})
+                    {/* Two-Phase Workflow Panel */}
+                    {workflowPhase === 'idle' && (
+                        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl shadow-lg p-6">
+                            <h3 className="text-xl font-bold text-indigo-900 mb-4 flex items-center">
+                                <span className="mr-2">📊</span> Article Generation Workflow
                             </h3>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                {/* Research Cache */}
-                                <div className="bg-blue-50 rounded-lg p-4">
-                                    <h4 className="text-sm font-semibold text-blue-800 mb-2">
-                                        Research Data: {cacheSummary.researchCount} platforms
-                                    </h4>
-                                    {cacheSummary.researchPlatforms.length > 0 && (
-                                        <div className="flex flex-wrap gap-1">
-                                            {cacheSummary.researchPlatforms.map((name, i) => (
-                                                <span key={i} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                                                    {name}
-                                                </span>
-                                            ))}
-                                        </div>
+                            {/* Step 1: Research Status */}
+                            <div className="mb-6">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm">1</span>
+                                    <h4 className="text-lg font-semibold text-gray-800">Research Platforms</h4>
+                                    {cacheSummary.reviewCount > 0 && (
+                                        <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                                            ✓ {cacheSummary.reviewCount} completed
+                                        </span>
                                     )}
                                 </div>
                                 
-                                {/* Review Cache */}
-                                <div className="bg-purple-50 rounded-lg p-4">
-                                    <h4 className="text-sm font-semibold text-purple-800 mb-2">
-                                        Generated Reviews: {cacheSummary.reviewCount} platforms
-                                    </h4>
-                                    {cacheSummary.reviewPlatforms.length > 0 && (
-                                        <div className="flex flex-wrap gap-1">
+                                {cacheSummary.reviewCount > 0 ? (
+                                    <div className="ml-10 bg-white rounded-lg p-4 border border-gray-200">
+                                        <p className="text-sm text-gray-600 mb-2">Platforms in research corpus:</p>
+                                        <div className="flex flex-wrap gap-2">
                                             {cacheSummary.reviewPlatforms.map((name, i) => (
-                                                <span key={i} className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
-                                                    {name}
+                                                <span key={i} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                                    ✓ {name}
                                                 </span>
                                             ))}
                                         </div>
-                                    )}
-                                </div>
+                                        <p className="text-xs text-gray-500 mt-3">
+                                            Add more platforms above and click "Research Platforms" to expand your corpus.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="ml-10 bg-white rounded-lg p-4 border border-gray-200">
+                                        <p className="text-sm text-gray-500">
+                                            No platforms researched yet. Add platforms above and click "Research Platforms" to begin.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                             
-                            {/* Assemble Button */}
-                            <div className="flex items-center justify-between border-t pt-4">
-                                <div className="text-sm text-gray-600">
-                                    {cacheSummary.canAssemble ? (
-                                        <span className="text-green-600 font-medium">
-                                            ✅ Ready to assemble article ({cacheSummary.reviewCount} reviews)
-                                        </span>
-                                    ) : (
-                                        <span className="text-amber-600">
-                                            ⚠️ Need at least 3 reviews to assemble (have {cacheSummary.reviewCount})
-                                        </span>
-                                    )}
+                            {/* Step 2: Generate Article */}
+                            <div className="border-t border-indigo-200 pt-6">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
+                                        cacheSummary.canAssemble 
+                                            ? 'bg-purple-600 text-white' 
+                                            : 'bg-gray-300 text-gray-500'
+                                    }`}>2</span>
+                                    <h4 className={`text-lg font-semibold ${cacheSummary.canAssemble ? 'text-gray-800' : 'text-gray-400'}`}>
+                                        Generate Article
+                                    </h4>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={handleClearAllCaches}
-                                        className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md transition"
-                                    >
-                                        Clear All Caches
-                                    </button>
-                                    <button
-                                        onClick={handleAssembleArticle}
-                                        disabled={!cacheSummary.canAssemble || isLoading}
-                                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                                            cacheSummary.canAssemble && !isLoading
-                                                ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                                                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                        }`}
-                                    >
-                                        Assemble Article from Cache
-                                    </button>
+                                
+                                <div className="ml-10">
+                                    {cacheSummary.canAssemble ? (
+                                        <div className="bg-white rounded-lg p-4 border-2 border-purple-300">
+                                            <p className="text-sm text-green-700 font-medium mb-3">
+                                                ✅ {cacheSummary.reviewCount} platforms ready! You can now generate your comparison article.
+                                            </p>
+                                            <p className="text-xs text-gray-500 mb-4">
+                                                This will generate: Introduction, Comparison Table, Platform Reviews with consistent ratings, and FAQs.
+                                            </p>
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={handleAssembleArticle}
+                                                    disabled={isLoading}
+                                                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-lg shadow-md transition transform hover:scale-105 disabled:opacity-50 disabled:scale-100"
+                                                >
+                                                    ✨ Generate Comparison Article
+                                                </button>
+                                                <button
+                                                    onClick={handleClearAllCaches}
+                                                    className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition"
+                                                >
+                                                    Clear Cache
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                            <p className="text-sm text-amber-600">
+                                                ⚠️ Need at least 3 platforms to generate a comparison article.
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Currently have {cacheSummary.reviewCount} platform{cacheSummary.reviewCount !== 1 ? 's' : ''}. 
+                                                Research {Math.max(0, 3 - cacheSummary.reviewCount)} more to unlock article generation.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
