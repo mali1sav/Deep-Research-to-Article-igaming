@@ -680,7 +680,8 @@ export const InputForm: React.FC<InputFormProps> = ({
                     {config.platforms.length > 0 && (
                         <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
                             {config.platforms.map((platform, index) => {
-                                const isCached = isPlatformCached(platform.name, config.vertical || 'gambling');
+                                // Only check cache when NOT loading - avoids showing "cached" during active research
+                                const isCached = !isLoading && isPlatformCached(platform.name, config.vertical || 'gambling');
                                 return (
                                     <div key={index} className="flex items-center gap-3 p-3">
                                         <span className="text-sm font-medium text-gray-500 w-6">{index + 1}.</span>
