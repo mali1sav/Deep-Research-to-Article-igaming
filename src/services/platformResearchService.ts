@@ -191,6 +191,32 @@ async function callOpenRouterContent(prompt: string, jsonMode: boolean = true): 
     return result.choices[0].message.content;
 }
 
+// --- Writing Model API (uses selected model: GPT 5.2 or Claude Sonnet 4.5) ---
+async function callWritingModel(prompt: string, writingModel: WritingModel, jsonMode: boolean = true): Promise<string> {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": window.location.origin,
+            "X-Title": "Article Writing"
+        },
+        body: JSON.stringify({
+            model: writingModel,  // Use selected writing model (GPT 5.2 or Claude)
+            messages: [{ role: 'user', content: prompt }],
+            ...(jsonMode && { response_format: { type: "json_object" } })
+        })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Writing Model API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result.choices[0].message.content;
+}
+
 // --- Citation Helper Functions ---
 export const buildGoogleSearchUrl = (title: string): string => {
     const encodedQuery = encodeURIComponent(title);
@@ -1098,83 +1124,108 @@ const getNoDataMessage = (): string => {
 
 export const generateComparisonTable = async (
     platformResearch: PlatformResearch[],
-    language: Language,
-    vertical: VerticalType = 'gambling'
+    config: ArticleConfig
 ): Promise<ComparisonTableRow[]> => {
     const noDataMsg = getNoDataMessage();
-    const verticalConfig = getVerticalConfig(vertical);
+    const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
     
-    // Build vertical-specific data based on infosheet fields
+    // Gather ALL available data from each platform's infosheet for LLM to choose from
     const researchData = platformResearch.map(p => {
         const hasData = hasValidResearchData(p);
         const info = p.infosheet as Record<string, any>;
         
-        // Get first 3 infosheet fields for comparison columns
-        const comparisonData: Record<string, any> = {
+        return {
             name: p.name,
-            hasResearchData: hasData
+            hasResearchData: hasData,
+            // Include all infosheet data for LLM to analyze
+            ...Object.fromEntries(
+                Object.entries(info)
+                    .filter(([k]) => !['dataSource', 'retrievedAt'].includes(k))
+                    .map(([k, v]) => [k, hasData ? (v || noDataMsg) : noDataMsg])
+            ),
+            // Include pros/cons summary for context
+            keyStrengths: hasData ? (p.pros || []).slice(0, 3).join(', ') : noDataMsg,
+            keyWeaknesses: hasData ? (p.cons || []).slice(0, 2).join(', ') : noDataMsg
         };
-        
-        // Add first 3 fields from vertical config
-        verticalConfig.infosheetFields.slice(0, 3).forEach(field => {
-            comparisonData[field.key] = hasData ? (info[field.key] || noDataMsg) : noDataMsg;
-        });
-        
-        return comparisonData;
     });
 
-    const langInstruction = getLanguageInstruction(language, 'comparison');
+    const langInstruction = getLanguageInstruction(config.language, 'comparison');
     
-    // Build column descriptions from vertical config
-    const columnDescriptions = verticalConfig.infosheetFields.slice(0, 3)
+    // Build available fields list from vertical config
+    const availableFields = verticalConfig.infosheetFields
         .map(f => `- ${f.key}: ${f.label}`)
         .join('\n');
     
-    // Build scoring categories description
-    const scoringDesc = verticalConfig.scoringCategories
-        .map(c => c.label)
-        .join(', ');
+    // Get primary keyword for context
+    const primaryKeyword = config.targetKeywords?.find(k => k.isPrimary)?.keyword || '';
+    
+    // Get article narrative/angle
+    const articleNarrative = config.introNarrative || '';
 
-    // Build dynamic column keys for JSON example
-    const columnKeys = verticalConfig.infosheetFields.slice(0, 3).map(f => f.key);
-    const exampleRow = `{ "platformName": "...", ${columnKeys.map(k => `"${k}": "..."`).join(', ')}, "rating": "⭐⭐⭐⭐" }`;
-
-    const prompt = `Based on the following ${verticalConfig.name.toLowerCase()} platform data, generate a comparison table with ratings.
+    const prompt = `You are an expert ${verticalConfig.name.toLowerCase()} analyst. Create a comparison table that helps readers make informed decisions.
 
 ${langInstruction}
 
-**Platform Data:**
+**ARTICLE CONTEXT:**
+- Vertical/Industry: ${verticalConfig.name}
+- Primary Keyword: ${primaryKeyword || 'Not specified'}
+- Article Angle/Narrative: ${articleNarrative || 'General comparison'}
+- Platforms Being Compared: ${platformResearch.map(p => p.name).join(', ')}
+
+**AVAILABLE PLATFORM DATA:**
 ${JSON.stringify(researchData, null, 2)}
 
-**Columns to include (use these exact field names from the data):**
-${columnDescriptions}
-- rating: Overall star rating
+**AVAILABLE DATA FIELDS:**
+${availableFields}
 
-**STAR RATING AGGREGATION METHOD:**
-The overall star rating (1-5 stars) is calculated based on these ${verticalConfig.name.toLowerCase()} criteria: ${scoringDesc}
-Convert to 1-5 stars:
-   - Excellent: ⭐⭐⭐⭐⭐ (5 stars)
-   - Very Good: ⭐⭐⭐⭐ (4 stars)
-   - Good: ⭐⭐⭐ (3 stars)
-   - Fair: ⭐⭐ (2 stars)
-   - Poor: ⭐ (1 star)
+**YOUR TASK:**
+1. ANALYZE the article context (keyword, narrative, vertical, platforms)
+2. CHOOSE 3-5 most relevant comparison columns that:
+   - Match the article's angle/narrative
+   - Are meaningful for the ${verticalConfig.name.toLowerCase()} vertical
+   - Help readers compare these specific platforms
+   - Have data available (don't choose columns with mostly "Unknown" values)
+3. GENERATE the comparison table with your chosen columns + rating
 
-**IMPORTANT:** If a platform has "hasResearchData: false", it means the research agent could NOT retrieve information for this platform. In that case:
-- Keep the "⚠️" warning messages as-is in the table
-- Do NOT rate this platform (use "N/A" or "—" for rating)
-- Do NOT make up or invent data for this platform
+**COLUMN SELECTION GUIDELINES:**
+- If article is about "best value" → prioritize pricing/fees columns
+- If article is about "security" → prioritize security/license columns
+- If article is about "beginners" → prioritize ease of use/support columns
+- Always include at least one differentiating factor between platforms
+- Always include star rating as the last column
 
-For platforms WITH valid data, provide all columns with accurate data from the research.
+**STAR RATING (1-5 stars):**
+- ⭐⭐⭐⭐⭐ = Exceptional
+- ⭐⭐⭐⭐ = Very Good
+- ⭐⭐⭐ = Good
+- ⭐⭐ = Fair
+- ⭐ = Poor
+- "N/A" = No data available
+
+**IMPORTANT:** If "hasResearchData: false", keep warning messages and use "N/A" for rating.
 
 Return JSON format:
 {
+  "chosenColumns": ["column1", "column2", "column3"],
+  "columnLabels": { "column1": "Display Label 1", "column2": "Display Label 2" },
   "rows": [
-    ${exampleRow}
+    { "platformName": "...", "column1": "...", "column2": "...", "column3": "...", "rating": "⭐⭐⭐⭐" }
   ]
 }`;
 
-    const response = await withRetry(() => callOpenRouterContent(prompt));
-    const parsed = parseJsonResponse<{ rows: ComparisonTableRow[] }>(response);
+    // Use writing model for smarter column selection
+    const response = await withRetry(() => callWritingModel(prompt, config.writingModel));
+    const parsed = parseJsonResponse<{ 
+        chosenColumns?: string[];
+        columnLabels?: Record<string, string>;
+        rows: ComparisonTableRow[] 
+    }>(response);
+    
+    // Log chosen columns for debugging
+    if (parsed.chosenColumns) {
+        console.log(`Comparison table columns chosen by LLM: ${parsed.chosenColumns.join(', ')}`);
+    }
+    
     return parsed.rows;
 };
 
@@ -1293,7 +1344,8 @@ Return JSON format:
   ${includeVerdict ? '"verdict": "<p>HTML verdict...</p>"' : ''}
 }`;
 
-    const response = await withRetry(() => callOpenRouterContent(prompt));
+    // Use selected writing model (GPT 5.2 or Claude) for better quality reviews
+    const response = await withRetry(() => callWritingModel(prompt, config.writingModel));
     const parsed = parseJsonResponse<{ overview: string; ratings?: RatingCategory[]; pros?: string[]; cons?: string[]; verdict?: string }>(response);
 
     // Handle pros/cons only if enabled
@@ -1487,7 +1539,7 @@ export const assembleArticleFromCache = async (
     let comparisonTable: ComparisonTableRow[] = [];
     if (config.includeSections?.comparisonTable !== false && platformResearch.length > 0) {
         onProgress?.('generating-comparison', 'Building comparison table...');
-        comparisonTable = await generateComparisonTable(platformResearch, config.language, vertical);
+        comparisonTable = await generateComparisonTable(platformResearch, config);
     }
     
     // Step 6: Generate FAQs
@@ -1976,7 +2028,7 @@ export const generateFullArticle = async (
     let comparisonTable: ComparisonTableRow[] = [];
     if (config.includeSections.comparisonTable) {
         onProgress?.('generating-comparison');
-        comparisonTable = await generateComparisonTable(platformResearch, config.language, config.vertical || 'gambling');
+        comparisonTable = await generateComparisonTable(platformResearch, config);
     }
 
     onProgress?.('generating-reviews');
