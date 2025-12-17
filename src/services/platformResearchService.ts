@@ -10,6 +10,7 @@ import {
     Language,
     RatingCategory,
     WritingModel,
+    ResearchModel,
     SeoMode,
     ToneOfVoice,
     TargetKeyword,
@@ -124,6 +125,44 @@ async function callOpenRouterDeepResearch(messages: OpenRouterMessage[]): Promis
 
     const result = await response.json();
     return result.choices[0].message;
+}
+
+// --- Perplexity Sonar API (Real-time web search with verified URLs) ---
+async function callPerplexitySonar(prompt: string): Promise<{ content: string; citations: string[] }> {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": window.location.origin,
+            "X-Title": "Platform Research (Perplexity)"
+        },
+        body: JSON.stringify({
+            model: "perplexity/sonar",
+            messages: [{ role: 'user', content: prompt }],
+            // Perplexity-specific options for fresh results
+            web_search_options: {
+                search_context_size: "high",  // Maximum search depth
+                search_recency_filter: "month"  // Only sources from last 30 days
+            }
+        })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Perplexity Sonar API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    const message = result.choices[0].message;
+    
+    // Perplexity returns citations in the response
+    const citations = message.citations || [];
+    
+    return {
+        content: message.content,
+        citations: citations
+    };
 }
 
 // --- OpenRouter Content Generation (replaces Gemini) ---
@@ -468,58 +507,76 @@ ${infosheetJson}
 }`;
 };
 
-export const researchPlatform = async (platformName: string, vertical: VerticalType = 'gambling'): Promise<PlatformResearch> => {
+export const researchPlatform = async (
+    platformName: string, 
+    vertical: VerticalType = 'gambling',
+    researchModel: ResearchModel = ResearchModel.TONGYI_DEEP_RESEARCH
+): Promise<PlatformResearch> => {
     const verticalConfig = getVerticalConfig(vertical);
     const prompt = buildResearchPrompt(platformName, verticalConfig);
 
     try {
-        // First call - initial research (with retry)
-        const response1 = await withRetry(
-            () => callOpenRouterDeepResearch([{ role: 'user', content: prompt }]),
-            5,  // max retries
-            5000 // 5 second base delay
-        );
+        let finalContent: string;
+        let perplexityCitations: string[] = [];
 
-        // Check if first response already has good data - skip verification if so
-        let finalContent = response1.content;
-        let skipVerification = false;
-        
-        try {
-            const initialParsed = parseJsonResponse<any>(response1.content);
-            const infosheet = initialParsed.infosheet || initialParsed;
-            const hasGoodData = infosheet && 
-                Object.values(infosheet).filter(v => 
-                    v && String(v).toLowerCase() !== 'unknown' && 
-                    String(v).toLowerCase() !== 'not publicly disclosed'
-                ).length >= 5;
-            skipVerification = hasGoodData;
-        } catch {
-            skipVerification = false;
-        }
-
-        if (!skipVerification) {
-            // Add delay before verification call to reduce 503 chance
-            await sleep(3000);
-            
-            // Second call - verify and fill gaps (with retry)
-            const verifyPrompt = `Please verify the information above is accurate. If any fields show "Unknown" or "Not publicly disclosed", try harder to find the actual data. Provide your final verified JSON response.`;
-
-            const verifyResponse = await withRetry(
-                () => callOpenRouterDeepResearch([
-                    { role: 'user', content: prompt },
-                    { 
-                        role: 'assistant', 
-                        content: response1.content,
-                        reasoning_details: response1.reasoning_details
-                    },
-                    { role: 'user', content: verifyPrompt }
-                ]),
+        // Use selected research model
+        if (researchModel === ResearchModel.PERPLEXITY_SONAR) {
+            // Perplexity Sonar - real-time web search with verified URLs
+            console.log(`Using Perplexity Sonar for ${platformName} (fresh sources from last 30 days)`);
+            const sonarResponse = await withRetry(
+                () => callPerplexitySonar(prompt),
+                5,
+                3000
+            );
+            finalContent = sonarResponse.content;
+            perplexityCitations = sonarResponse.citations;
+        } else {
+            // Tongyi Deep Research - original model
+            console.log(`Using Tongyi Deep Research for ${platformName}`);
+            const response1 = await withRetry(
+                () => callOpenRouterDeepResearch([{ role: 'user', content: prompt }]),
                 5,
                 5000
             );
-            finalContent = verifyResponse.content;
-        } else {
-            console.log(`Skipping verification for ${platformName} - initial data quality is good`);
+
+            // Check if first response already has good data - skip verification if so
+            finalContent = response1.content;
+            let skipVerification = false;
+            
+            try {
+                const initialParsed = parseJsonResponse<any>(response1.content);
+                const infosheet = initialParsed.infosheet || initialParsed;
+                const hasGoodData = infosheet && 
+                    Object.values(infosheet).filter(v => 
+                        v && String(v).toLowerCase() !== 'unknown' && 
+                        String(v).toLowerCase() !== 'not publicly disclosed'
+                    ).length >= 5;
+                skipVerification = hasGoodData;
+            } catch {
+                skipVerification = false;
+            }
+
+            if (!skipVerification) {
+                await sleep(3000);
+                const verifyPrompt = `Please verify the information above is accurate. If any fields show "Unknown" or "Not publicly disclosed", try harder to find the actual data. Provide your final verified JSON response.`;
+
+                const verifyResponse = await withRetry(
+                    () => callOpenRouterDeepResearch([
+                        { role: 'user', content: prompt },
+                        { 
+                            role: 'assistant', 
+                            content: response1.content,
+                            reasoning_details: response1.reasoning_details
+                        },
+                        { role: 'user', content: verifyPrompt }
+                    ]),
+                    5,
+                    5000
+                );
+                finalContent = verifyResponse.content;
+            } else {
+                console.log(`Skipping verification for ${platformName} - initial data quality is good`);
+            }
         }
 
         const parsed = parseJsonResponse<ResearchResponse>(finalContent);
@@ -848,14 +905,15 @@ export const getCacheSummary = (vertical: VerticalType): {
 export const researchAllPlatforms = async (
     platformNames: string[],
     vertical: VerticalType = 'gambling',
-    onProgress?: (completed: number, total: number, platformName: string, fromCache?: boolean) => void
+    onProgress?: (completed: number, total: number, platformName: string, fromCache?: boolean) => void,
+    researchModel: ResearchModel = ResearchModel.TONGYI_DEEP_RESEARCH
 ): Promise<PlatformResearch[]> => {
     const total = platformNames.length;
     let completed = 0;
     const results: PlatformResearch[] = [];
     
     // Sequential processing with delays to avoid 503 errors
-    const DELAY_BETWEEN_REQUESTS_MS = 3000; // 3 second delay between each request
+    const DELAY_BETWEEN_REQUESTS_MS = researchModel === ResearchModel.PERPLEXITY_SONAR ? 1500 : 3000;
     
     for (const name of platformNames) {
         // Check cache first
@@ -868,7 +926,7 @@ export const researchAllPlatforms = async (
             onProgress?.(completed, total, name, true);
         } else {
             // Research and cache the result
-            const result = await researchPlatform(name, vertical);
+            const result = await researchPlatform(name, vertical, researchModel);
             
             // Save to cache (even errors, but they won't be retrieved)
             saveToResearchCache(name, result, vertical);

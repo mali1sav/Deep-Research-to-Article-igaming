@@ -6,6 +6,7 @@ import {
     IncludeSections, 
     SectionWordCounts,
     WritingModel,
+    ResearchModel,
     ToneOfVoice,
     InternalLink,
     TargetKeyword,
@@ -387,6 +388,18 @@ export const InputForm: React.FC<InputFormProps> = ({
                             >
                                 <option value={WritingModel.GPT_5_2}>GPT 5.2</option>
                                 <option value={WritingModel.CLAUDE_SONNET_4_5}>Claude Sonnet 4.5</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="researchModel" className="block text-xs font-medium text-gray-700 mb-1">Research Model</label>
+                            <select 
+                                id="researchModel" 
+                                value={config.researchModel} 
+                                onChange={(e) => setConfig({ ...config, researchModel: e.target.value as ResearchModel })}
+                                className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value={ResearchModel.PERPLEXITY_SONAR}>🔍 Perplexity Sonar (Real-time, fresh URLs)</option>
+                                <option value={ResearchModel.TONGYI_DEEP_RESEARCH}>🧠 Tongyi Deep Research (Original)</option>
                             </select>
                         </div>
                     </div>

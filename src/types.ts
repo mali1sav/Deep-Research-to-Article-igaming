@@ -20,6 +20,11 @@ export enum WritingModel {
     CLAUDE_SONNET_4_5 = 'anthropic/claude-sonnet-4.5',
 }
 
+export enum ResearchModel {
+    TONGYI_DEEP_RESEARCH = 'tongyi',
+    PERPLEXITY_SONAR = 'perplexity-sonar',
+}
+
 export enum SeoMode {
     DEFAULT = 'default',
     MANUAL = 'manual',
@@ -154,6 +159,7 @@ export interface ArticleConfig {
     manualSeoSettings?: ManualSeoSettings;
     primaryKeywordCount?: number;  // Simple count for primary keyword mentions (default 15)
     writingModel: WritingModel;
+    researchModel: ResearchModel;
     toneOfVoice: ToneOfVoice;
     customTone?: string;
     // Article structure

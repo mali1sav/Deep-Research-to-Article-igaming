@@ -30,6 +30,7 @@ import {
     WorkflowPhase,
     AppMode,
     WritingModel,
+    ResearchModel,
     SeoMode,
     ToneOfVoice
 } from './types';
@@ -172,6 +173,10 @@ const loadSavedConfig = (): ArticleConfig | null => {
             if (!validWritingModels.includes(parsed.writingModel)) {
                 parsed.writingModel = WritingModel.GPT_5_2;
             }
+            const validResearchModels = Object.values(ResearchModel);
+            if (!validResearchModels.includes(parsed.researchModel)) {
+                parsed.researchModel = ResearchModel.PERPLEXITY_SONAR;
+            }
             const validTones = Object.values(ToneOfVoice);
             if (!validTones.includes(parsed.toneOfVoice)) {
                 parsed.toneOfVoice = ToneOfVoice.PROFESSIONAL;
@@ -212,6 +217,7 @@ const App: React.FC = () => {
             targetKeywords: [],
             seoMode: SeoMode.DEFAULT,
             writingModel: WritingModel.GPT_5_2,
+            researchModel: ResearchModel.PERPLEXITY_SONAR,
             toneOfVoice: ToneOfVoice.PROFESSIONAL,
         };
     });
@@ -285,6 +291,7 @@ const App: React.FC = () => {
             targetKeywords: [],
             seoMode: SeoMode.DEFAULT,
             writingModel: WritingModel.GPT_5_2,
+            researchModel: ResearchModel.PERPLEXITY_SONAR,
             toneOfVoice: ToneOfVoice.PROFESSIONAL,
         };
         setConfig(defaultConfig);
@@ -360,7 +367,8 @@ const App: React.FC = () => {
             setPlatformResearch(initialResearch);
 
             // Research all platforms (uses cache for previously researched platforms)
-            setLoadingMessage('Researching platforms...');
+            const modelName = config.researchModel === ResearchModel.PERPLEXITY_SONAR ? 'Perplexity Sonar' : 'Tongyi';
+            setLoadingMessage(`Researching platforms with ${modelName}...`);
             const researchResults = await researchAllPlatforms(
                 config.platforms.map(p => p.name),
                 config.vertical || 'gambling',
@@ -372,7 +380,8 @@ const App: React.FC = () => {
                             ? { ...p, researchStatus: 'completed' }
                             : p
                     ));
-                }
+                },
+                config.researchModel
             );
             setPlatformResearch(researchResults);
             
