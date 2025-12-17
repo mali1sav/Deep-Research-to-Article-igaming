@@ -48,6 +48,197 @@ const Loader: React.FC<{ message: string }> = ({ message }) => (
     </div>
 );
 
+// --- Walkthrough Modal for Asian Editors ---
+const WalkthroughModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+    const [step, setStep] = useState(0);
+    
+    const steps = [
+        {
+            title: "📋 Welcome to Article Generator",
+            content: (
+                <div className="space-y-4">
+                    <p className="text-gray-700">This tool helps you create <strong>SEO-optimized comparison articles</strong> for gambling, crypto, and other verticals.</p>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                        <p className="font-semibold text-blue-800 mb-2">🎯 Two Modes Available:</p>
+                        <ul className="space-y-2 text-sm">
+                            <li><strong>📝 Full Article Mode</strong> — Creates complete article with intro, comparison table, reviews, FAQs</li>
+                            <li><strong>🔄 Review Only Mode</strong> — Creates individual platform reviews only (no intro, no comparison)</li>
+                        </ul>
+                    </div>
+                </div>
+            )
+        },
+        {
+            title: "🔄 Workflow: Step 1 — Research",
+            content: (
+                <div className="space-y-4">
+                    <div className="bg-green-50 p-4 rounded-lg">
+                        <p className="font-semibold text-green-800 mb-2">First, research your platforms:</p>
+                        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
+                            <li>Enter platform names (e.g., "Stake", "BC.Game", "1xBet")</li>
+                            <li>Select <strong>Research Model</strong>: Perplexity Sonar (recommended for fresh data)</li>
+                            <li>Click <strong>"Start Research"</strong> button</li>
+                            <li>Wait for AI to gather information from the web</li>
+                        </ol>
+                    </div>
+                    <p className="text-sm text-gray-600">💡 <strong>Tip:</strong> Research is cached. If you close the browser, your research is saved!</p>
+                </div>
+            )
+        },
+        {
+            title: "✍️ Workflow: Step 2 — Generate Article",
+            content: (
+                <div className="space-y-4">
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                        <p className="font-semibold text-purple-800 mb-2">After research completes:</p>
+                        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
+                            <li>Review the research results (check the evidence panel)</li>
+                            <li>Click <strong>"Generate Article"</strong> or <strong>"Generate Reviews"</strong></li>
+                            <li>Select <strong>Writing Model</strong>: GPT 5.2 or Claude Sonnet 4.5</li>
+                            <li>Wait for AI to write the content</li>
+                        </ol>
+                    </div>
+                    <p className="text-sm text-gray-600">💡 <strong>Tip:</strong> The Writing Model affects quality. GPT 5.2 and Claude produce better content than basic models.</p>
+                </div>
+            )
+        },
+        {
+            title: "📤 Workflow: Step 3 — Copy to WordPress",
+            content: (
+                <div className="space-y-4">
+                    <div className="bg-amber-50 p-4 rounded-lg">
+                        <p className="font-semibold text-amber-800 mb-2">Export your content:</p>
+                        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
+                            <li>Click <strong>"Copy for WordPress"</strong> button</li>
+                            <li>HTML is copied to clipboard with shortcodes</li>
+                            <li>Paste into WordPress editor (HTML/Code view)</li>
+                            <li>Review and edit as needed</li>
+                        </ol>
+                    </div>
+                    <p className="text-sm text-gray-600">💡 <strong>Tip:</strong> Citation links are real URLs from Perplexity Sonar — editors don't need to find sources manually!</p>
+                </div>
+            )
+        },
+        {
+            title: "⚙️ Key Settings to Know",
+            content: (
+                <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="font-semibold">🔍 Research Model</p>
+                            <p className="text-gray-600">Perplexity = Fresh web data</p>
+                            <p className="text-gray-600">Tongyi = Training data only</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="font-semibold">✍️ Writing Model</p>
+                            <p className="text-gray-600">GPT 5.2 = Best quality</p>
+                            <p className="text-gray-600">Claude = Also excellent</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="font-semibold">🌐 Language</p>
+                            <p className="text-gray-600">AI writes in your selected language (TH, JP, KR, VN, EN)</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="font-semibold">🎯 Primary Keyword</p>
+                            <p className="text-gray-600">Affects comparison columns and rating categories</p>
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            title: "📝 Full Article vs Review Only",
+            content: (
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                            <p className="font-semibold text-blue-800 mb-2">📝 Full Article Mode</p>
+                            <ul className="text-sm space-y-1 text-gray-700">
+                                <li>✅ Introduction paragraph</li>
+                                <li>✅ Platform quick list</li>
+                                <li>✅ Comparison table</li>
+                                <li>✅ Individual reviews</li>
+                                <li>✅ FAQs section</li>
+                                <li>✅ SEO metadata</li>
+                            </ul>
+                            <p className="text-xs text-blue-600 mt-2">Best for: New comparison articles</p>
+                        </div>
+                        <div className="bg-orange-50 p-4 rounded-lg">
+                            <p className="font-semibold text-orange-800 mb-2">🔄 Review Only Mode</p>
+                            <ul className="text-sm space-y-1 text-gray-700">
+                                <li>✅ Individual reviews only</li>
+                                <li>❌ No introduction</li>
+                                <li>❌ No comparison table</li>
+                                <li>❌ No FAQs</li>
+                            </ul>
+                            <p className="text-xs text-orange-600 mt-2">Best for: Adding reviews to existing articles</p>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+    ];
+    
+    if (!isOpen) return null;
+    
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xl font-bold">{steps[step].title}</h2>
+                        <button onClick={onClose} className="text-white hover:text-gray-200 text-2xl">&times;</button>
+                    </div>
+                    {/* Progress dots */}
+                    <div className="flex gap-2 mt-3">
+                        {steps.map((_, i) => (
+                            <div 
+                                key={i} 
+                                className={`h-2 rounded-full transition-all ${i === step ? 'w-8 bg-white' : 'w-2 bg-white/40'}`}
+                                onClick={() => setStep(i)}
+                                style={{ cursor: 'pointer' }}
+                            />
+                        ))}
+                    </div>
+                </div>
+                
+                {/* Content */}
+                <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 180px)' }}>
+                    {steps[step].content}
+                </div>
+                
+                {/* Footer */}
+                <div className="border-t px-6 py-4 flex justify-between items-center bg-gray-50">
+                    <button 
+                        onClick={() => setStep(Math.max(0, step - 1))}
+                        disabled={step === 0}
+                        className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-30"
+                    >
+                        ← Previous
+                    </button>
+                    <span className="text-sm text-gray-500">{step + 1} / {steps.length}</span>
+                    {step < steps.length - 1 ? (
+                        <button 
+                            onClick={() => setStep(step + 1)}
+                            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                        >
+                            Next →
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={onClose}
+                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                        >
+                            ✓ Got it!
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- Animated Research Indicator ---
 const AnimatedResearchingBadge: React.FC<{ message?: string }> = ({ message }) => {
     const [dots, setDots] = React.useState('');
@@ -247,6 +438,9 @@ const App: React.FC = () => {
     // SERP Competitor Analysis state
     const [serpCompetitors, setSerpCompetitors] = useState<SerpCompetitor[]>([]);
     const [serpAnalysisLoading, setSerpAnalysisLoading] = useState(false);
+    
+    // Walkthrough modal state
+    const [showWalkthrough, setShowWalkthrough] = useState(false);
     
     // Update cache summary when vertical changes or on mount
     useEffect(() => {
@@ -954,12 +1148,21 @@ Image Alt Text: ${seo.imageAltText}
     return (
         <div className="min-h-screen bg-gray-100 text-gray-800 font-sans p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">
-                <header className="text-center mb-8">
+                <header className="text-center mb-8 relative">
                     <h1 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-blue-600">
                         Deep Research to Article 
                     </h1>
                     <p className="mt-2 text-lg text-gray-600">Create comprehensive, research-backed platform reviews</p>
+                    <button
+                        onClick={() => setShowWalkthrough(true)}
+                        className="absolute top-0 right-0 px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm font-medium transition flex items-center gap-2"
+                    >
+                        <span>❓</span> How to Use
+                    </button>
                 </header>
+                
+                {/* Walkthrough Modal */}
+                <WalkthroughModal isOpen={showWalkthrough} onClose={() => setShowWalkthrough(false)} />
 
                 <main className="space-y-8">
                     {/* Input Form */}
@@ -1052,7 +1255,7 @@ Image Alt Text: ${seo.imageAltText}
                                                     onClick={handleClearAllCaches}
                                                     className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition"
                                                 >
-                                                    Clear Cache
+                                                    Clear Research
                                                 </button>
                                             </div>
                                         </div>

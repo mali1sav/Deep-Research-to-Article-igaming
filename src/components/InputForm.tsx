@@ -279,9 +279,9 @@ export const InputForm: React.FC<InputFormProps> = ({
                             type="button"
                             onClick={onClearResearchCache}
                             className="px-3 py-2 text-sm text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-md transition font-medium"
-                            title="Clear cached research data (forces fresh API calls)"
+                            title="Clear saved research data (forces fresh API calls)"
                         >
-                            🔄 Clear Cache
+                            🔄 Clear Research
                         </button>
                     )}
                     <button
