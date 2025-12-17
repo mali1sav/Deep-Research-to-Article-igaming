@@ -1,4 +1,3 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { 
     PlatformResearch, 
     PlatformInfosheet, 
@@ -21,23 +20,19 @@ import {
 import { getVerticalConfig, VerticalConfig } from '../config/verticals';
 
 // --- API Configuration ---
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 
-// Gemini for content generation (intro, reviews, FAQs)
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-const textModel = 'gemini-2.5-flash';
-
-// OpenRouter Deep Research for platform research (better web search)
-const OPENROUTER_MODEL = 'alibaba/tongyi-deepresearch-30b-a3b';
+// OpenRouter models
+const OPENROUTER_RESEARCH_MODEL = 'alibaba/tongyi-deepresearch-30b-a3b'; // For deep research with web search
+const OPENROUTER_CONTENT_MODEL = 'openai/gpt-4o-mini'; // For content generation (fast, reliable)
 
 // --- Retry Helper with Exponential Backoff ---
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function withRetry<T>(
     fn: () => Promise<T>,
-    maxRetries: number = 5,  // Increased from 3 to 5 for 503 errors
-    baseDelayMs: number = 3000  // Increased from 2000 to 3000
+    maxRetries: number = 6,  // Increased for better 503 handling
+    baseDelayMs: number = 5000  // 5 second base delay
 ): Promise<T> {
     let lastError: Error | null = null;
     
@@ -64,11 +59,11 @@ async function withRetry<T>(
                 throw error;
             }
             
-            // Longer delays for 503 overloaded errors
+            // Longer delays for 503 overloaded errors (Gemini)
             const is503 = message.includes('503') || lower.includes('overloaded');
-            const multiplier = is503 ? 3 : 2;  // 3x backoff for 503, 2x for others
-            const delayMs = baseDelayMs * Math.pow(multiplier, attempt);
-            console.warn(`API call failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delayMs}ms...`, error.message);
+            const multiplier = is503 ? 2.5 : 2;  // 2.5x backoff for 503
+            const delayMs = Math.min(baseDelayMs * Math.pow(multiplier, attempt), 60000); // Cap at 60s
+            console.warn(`API call failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${(delayMs/1000).toFixed(0)}s...`, error.message);
             await sleep(delayMs);
         }
     }
@@ -109,16 +104,15 @@ async function callOpenRouterDeepResearch(messages: OpenRouterMessage[]): Promis
             "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
             "HTTP-Referer": window.location.origin,
-            "X-Title": "Gambling Platform Research"
+            "X-Title": "Platform Research"
         },
         body: JSON.stringify({
-            model: OPENROUTER_MODEL,
+            model: OPENROUTER_RESEARCH_MODEL,
             messages: messages,
             reasoning: { enabled: true },
-            // Force AtlasCloud provider for better uptime (reduces 503 errors)
             provider: {
                 order: ["atlas-cloud"],
-                allow_fallbacks: true  // Allow fallback to other providers if AtlasCloud is unavailable
+                allow_fallbacks: true
             }
         })
     });
@@ -130,6 +124,32 @@ async function callOpenRouterDeepResearch(messages: OpenRouterMessage[]): Promis
 
     const result = await response.json();
     return result.choices[0].message;
+}
+
+// --- OpenRouter Content Generation (replaces Gemini) ---
+async function callOpenRouterContent(prompt: string, jsonMode: boolean = true): Promise<string> {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": window.location.origin,
+            "X-Title": "Content Generation"
+        },
+        body: JSON.stringify({
+            model: OPENROUTER_CONTENT_MODEL,
+            messages: [{ role: 'user', content: prompt }],
+            ...(jsonMode && { response_format: { type: "json_object" } })
+        })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenRouter Content API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result.choices[0].message.content;
 }
 
 // --- Citation Helper Functions ---
@@ -213,21 +233,20 @@ const getLanguageInstruction = (
 
 const buildCitationsIndexBlock = (citations: Citation[]): string => {
     if (!citations || citations.length === 0) return 'No citations provided.';
+    // Use Google Search URLs since AI-generated sourceUrls are often hallucinated/404
     return citations
-        .map((c, i) => `${i + 1}. ${c.domain} - ${c.sourceUrl}`)
+        .map((c, i) => `${i + 1}. ${c.domain} - ${c.googleSearchUrl}`)
         .join('\n');
 };
 
 const IN_TEXT_CITATION_RULES_HTML = `
 **CRITICAL - Citation Rules (MUST FOLLOW):**
-- ONLY use URLs from the "Citations Index" provided below - NEVER invent or guess URLs
-- If a URL is not in the Citations Index, DO NOT include it as a hyperlink
-- Add citations INSIDE paragraphs using format: <a href="EXACT_URL_FROM_INDEX" target="_blank" rel="noopener noreferrer">(domain.com)</a>
-- Example: Licensed by Curacao eGaming <a href="https://curacaoegaming.lc/verify" target="_blank" rel="noopener noreferrer">(curacaoegaming.lc)</a>
+- Use ONLY the Google Search URLs from the "Citations Index" below - these are guaranteed to work
+- Add citations INSIDE paragraphs using format: <a href="GOOGLE_SEARCH_URL_FROM_INDEX" target="_blank" rel="noopener noreferrer">(domain.com)</a>
+- Example: Licensed by Curacao eGaming <a href="https://www.google.com/search?q=curacaoegaming.lc" target="_blank" rel="noopener noreferrer">(curacaoegaming.lc)</a>
 - Each source should appear ONLY ONCE in the entire article
 - Only cite credibility-important info (licenses, company details, bonuses)
-- If no valid URL exists for a fact, state the fact WITHOUT a hyperlink
-- NEVER fabricate URLs - broken links destroy credibility
+- NEVER fabricate or modify URLs - use EXACTLY the URLs from the Citations Index
 `;
 
 // --- Tone, SEO, and Keyword Helpers ---
@@ -300,7 +319,8 @@ IMPORTANT: Each link should appear exactly 1 time total across all sections.\n`;
 };
 
 const buildCitationAnchor = (citation: Citation): string => {
-    return `<a href="${citation.sourceUrl}" target="_blank" rel="noopener noreferrer">(${citation.domain})</a>`;
+    // Use Google Search URL since AI-generated sourceUrls are often hallucinated/404
+    return `<a href="${citation.googleSearchUrl}" target="_blank" rel="noopener noreferrer">(${citation.domain})</a>`;
 };
 
 const ensureInTextCitations = (html: string, citations: Citation[], minCount: number): string => {
@@ -453,25 +473,56 @@ export const researchPlatform = async (platformName: string, vertical: VerticalT
     const prompt = buildResearchPrompt(platformName, verticalConfig);
 
     try {
-        // First call - initial research
-        const response1 = await callOpenRouterDeepResearch([
-            { role: 'user', content: prompt }
-        ]);
+        // First call - initial research (with retry)
+        const response1 = await withRetry(
+            () => callOpenRouterDeepResearch([{ role: 'user', content: prompt }]),
+            5,  // max retries
+            5000 // 5 second base delay
+        );
 
-        // Second call - verify and fill gaps
-        const verifyPrompt = `Please verify the information above is accurate. If any fields show "Unknown" or "Not publicly disclosed", try harder to find the actual data. Provide your final verified JSON response.`;
+        // Check if first response already has good data - skip verification if so
+        let finalContent = response1.content;
+        let skipVerification = false;
+        
+        try {
+            const initialParsed = parseJsonResponse<any>(response1.content);
+            const infosheet = initialParsed.infosheet || initialParsed;
+            const hasGoodData = infosheet && 
+                Object.values(infosheet).filter(v => 
+                    v && String(v).toLowerCase() !== 'unknown' && 
+                    String(v).toLowerCase() !== 'not publicly disclosed'
+                ).length >= 5;
+            skipVerification = hasGoodData;
+        } catch {
+            skipVerification = false;
+        }
 
-        const response2 = await callOpenRouterDeepResearch([
-            { role: 'user', content: prompt },
-            { 
-                role: 'assistant', 
-                content: response1.content,
-                reasoning_details: response1.reasoning_details
-            },
-            { role: 'user', content: verifyPrompt }
-        ]);
+        if (!skipVerification) {
+            // Add delay before verification call to reduce 503 chance
+            await sleep(3000);
+            
+            // Second call - verify and fill gaps (with retry)
+            const verifyPrompt = `Please verify the information above is accurate. If any fields show "Unknown" or "Not publicly disclosed", try harder to find the actual data. Provide your final verified JSON response.`;
 
-        const parsed = parseJsonResponse<ResearchResponse>(response2.content);
+            const verifyResponse = await withRetry(
+                () => callOpenRouterDeepResearch([
+                    { role: 'user', content: prompt },
+                    { 
+                        role: 'assistant', 
+                        content: response1.content,
+                        reasoning_details: response1.reasoning_details
+                    },
+                    { role: 'user', content: verifyPrompt }
+                ]),
+                5,
+                5000
+            );
+            finalContent = verifyResponse.content;
+        } else {
+            console.log(`Skipping verification for ${platformName} - initial data quality is good`);
+        }
+
+        const parsed = parseJsonResponse<ResearchResponse>(finalContent);
         const citations = extractCitationsFromSources(parsed.sources || []);
         
         // Extract source domains for attribution
@@ -509,7 +560,7 @@ export const researchPlatform = async (platformName: string, vertical: VerticalT
             keyFeatures: parsed.keyFeatures || [],
             pros: parsed.pros || [],
             cons: parsed.cons || [],
-            rawResearchSummary: response2.content,
+            rawResearchSummary: finalContent,
             citations,
             researchStatus: 'completed'
         };
@@ -879,24 +930,11 @@ ${platformList}
 - Mention the key criteria that will be used for evaluation (licensing, payment methods, game selection, user experience, withdrawal speed, customer support)
 - Do NOT include the platform list in the introduction (that comes in a separate section)
 - Include at least 2 in-text citations inside the introduction paragraphs
-- Output should be HTML formatted (use <p> tags for paragraphs)`;
+- Output should be HTML formatted (use <p> tags for paragraphs)
+- Return JSON: { "introduction": "<p>Your intro here...</p>" }`;
 
-    const response = await withRetry(() => ai.models.generateContent({
-        model: textModel,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    introduction: { type: Type.STRING }
-                },
-                required: ["introduction"]
-            }
-        }
-    }));
-
-    const parsed = parseJsonResponse<{ introduction: string }>(response.text);
+    const response = await withRetry(() => callOpenRouterContent(prompt));
+    const parsed = parseJsonResponse<{ introduction: string }>(response);
     return ensureInTextCitations(parsed.introduction, allCitations, 2);
 };
 
@@ -939,32 +977,8 @@ Rules:
 - Each shortDescription must include 1-2 clickable in-text citations like <a href="URL" target="_blank" rel="noopener noreferrer">[n]</a>.
 - Output shortDescription as HTML (no outer <p> required).`;
 
-    const response = await withRetry(() => ai.models.generateContent({
-        model: textModel,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    platformQuickList: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                name: { type: Type.STRING },
-                                shortDescription: { type: Type.STRING }
-                            },
-                            required: ["name", "shortDescription"]
-                        }
-                    }
-                },
-                required: ["platformQuickList"]
-            }
-        }
-    }));
-
-    const parsed = parseJsonResponse<{ platformQuickList: { name: string; shortDescription: string }[] }>(response.text);
+    const response = await withRetry(() => callOpenRouterContent(prompt));
+    const parsed = parseJsonResponse<{ platformQuickList: { name: string; shortDescription: string }[] }>(response);
     return (parsed.platformQuickList || []).map(p => ({
         ...p,
         shortDescription: ensureInTextCitations(p.shortDescription, allCitations, 1)
@@ -1053,45 +1067,17 @@ Convert to 1-5 stars:
 - Do NOT rate this platform (use "N/A" or "—" for rating)
 - Do NOT make up or invent data for this platform
 
-For platforms WITH valid data, provide all columns with accurate data from the research.`;
+For platforms WITH valid data, provide all columns with accurate data from the research.
 
-    // Build dynamic schema based on vertical config
-    const schemaProperties: Record<string, any> = {
-        platformName: { type: Type.STRING }
-    };
-    const requiredFields = ['platformName'];
-    
-    verticalConfig.infosheetFields.slice(0, 3).forEach(field => {
-        schemaProperties[field.key] = { type: Type.STRING };
-        requiredFields.push(field.key);
-    });
-    
-    schemaProperties.rating = { type: Type.STRING };
-    requiredFields.push('rating');
+Return JSON format:
+{
+  "rows": [
+    { "platformName": "...", "license": "...", "minDeposit": "...", "payoutSpeed": "...", "rating": "⭐⭐⭐⭐" }
+  ]
+}`;
 
-    const response = await withRetry(() => ai.models.generateContent({
-        model: textModel,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    rows: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: schemaProperties,
-                            required: requiredFields
-                        }
-                    }
-                },
-                required: ["rows"]
-            }
-        }
-    }));
-
-    const parsed = parseJsonResponse<{ rows: ComparisonTableRow[] }>(response.text);
+    const response = await withRetry(() => callOpenRouterContent(prompt));
+    const parsed = parseJsonResponse<{ rows: ComparisonTableRow[] }>(response);
     return parsed.rows;
 };
 
@@ -1200,61 +1186,18 @@ IMPORTANT:
 - If sources conflict, use the most authoritative source (official site > review site > forum)
 - Include at least 2 in-text citations in Overview${includeVerdict ? ' and at least 1 in Verdict' : ''}
 
-Output HTML for overview${includeVerdict ? ' and verdict' : ''} (use <p> tags).`;
+Output HTML for overview${includeVerdict ? ' and verdict' : ''} (use <p> tags).
 
-    // Build response schema based on what's enabled
-    const schemaProperties: Record<string, any> = {
-        overview: { type: Type.STRING }
-    };
-    const requiredFields = ['overview'];
+Return JSON format:
+{
+  "overview": "<p>HTML overview...</p>",
+  ${includeRatings ? '"ratings": [{ "category": "...", "score": 8 }],' : ''}
+  ${includeProsCons ? '"pros": ["..."], "cons": ["..."],' : ''}
+  ${includeVerdict ? '"verdict": "<p>HTML verdict...</p>"' : ''}
+}`;
 
-    if (includeRatings) {
-        schemaProperties.ratings = {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    category: { type: Type.STRING },
-                    score: { type: Type.NUMBER }
-                },
-                required: ["category", "score"]
-            }
-        };
-        requiredFields.push('ratings');
-    }
-
-    if (includeProsCons) {
-        schemaProperties.pros = {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-        };
-        schemaProperties.cons = {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-        };
-        requiredFields.push('pros', 'cons');
-    }
-
-    if (includeVerdict) {
-        schemaProperties.verdict = { type: Type.STRING };
-        requiredFields.push('verdict');
-    }
-
-    const response = await withRetry(() => ai.models.generateContent({
-        model: textModel,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: schemaProperties,
-                required: requiredFields
-            },
-            thinkingConfig: { thinkingBudget: 512 }
-        }
-    }));
-
-    const parsed = parseJsonResponse<{ overview: string; ratings?: RatingCategory[]; pros?: string[]; cons?: string[]; verdict?: string }>(response.text);
+    const response = await withRetry(() => callOpenRouterContent(prompt));
+    const parsed = parseJsonResponse<{ overview: string; ratings?: RatingCategory[]; pros?: string[]; cons?: string[]; verdict?: string }>(response);
 
     // Handle pros/cons only if enabled
     let safePros: string[] = [];
@@ -1345,47 +1288,20 @@ ${scoringCategoriesText}
 **Platforms to Rate:**
 ${platformSummaries}
 
-Rate each platform across all ${verticalConfig.scoringCategories.length} categories. Be honest and differentiate between platforms.`;
+Rate each platform across all ${verticalConfig.scoringCategories.length} categories. Be honest and differentiate between platforms.
 
-    const ratingSchema = {
-        type: Type.OBJECT,
-        properties: {
-            platformRatings: {
-                type: Type.ARRAY,
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        platformName: { type: Type.STRING },
-                        ratings: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    category: { type: Type.STRING },
-                                    score: { type: Type.NUMBER }
-                                },
-                                required: ['category', 'score']
-                            }
-                        }
-                    },
-                    required: ['platformName', 'ratings']
-                }
-            }
-        },
-        required: ['platformRatings']
-    };
+Return JSON format:
+{
+  "platformRatings": [
+    {
+      "platformName": "...",
+      "ratings": [{ "category": "...", "score": 8 }]
+    }
+  ]
+}`;
 
-    const response = await withRetry(() => ai.models.generateContent({
-        model: textModel,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: ratingSchema,
-            thinkingConfig: { thinkingBudget: 512 }
-        }
-    }));
-
-    const parsed = parseJsonResponse<{ platformRatings: { platformName: string; ratings: RatingCategory[] }[] }>(response.text);
+    const response = await withRetry(() => callOpenRouterContent(prompt));
+    const parsed = parseJsonResponse<{ platformRatings: { platformName: string; ratings: RatingCategory[] }[] }>(response);
     return parsed.platformRatings || [];
 };
 
@@ -1551,32 +1467,8 @@ Rules:
 - Answers must be HTML (use <p> tags).
 - Each answer must include at least 1 in-text citation link.`;
 
-    const response = await withRetry(() => ai.models.generateContent({
-        model: textModel,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    faqs: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                question: { type: Type.STRING },
-                                answer: { type: Type.STRING }
-                            },
-                            required: ["question", "answer"]
-                        }
-                    }
-                },
-                required: ["faqs"]
-            }
-        }
-    }));
-
-    const parsed = parseJsonResponse<{ faqs: FAQ[] }>(response.text);
+    const response = await withRetry(() => callOpenRouterContent(prompt));
+    const parsed = parseJsonResponse<{ faqs: FAQ[] }>(response);
     return (parsed.faqs || []).map(faq => ({
         ...faq,
         answer: ensureInTextCitations(faq.answer, faqCitations, 1)
@@ -1653,26 +1545,8 @@ Return JSON:
   "imageAltText": "..."
 }`;
 
-    const response = await withRetry(() => ai.models.generateContent({
-        model: textModel,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    title: { type: Type.STRING },
-                    metaDescription: { type: Type.STRING },
-                    slug: { type: Type.STRING },
-                    imagePrompt: { type: Type.STRING },
-                    imageAltText: { type: Type.STRING }
-                },
-                required: ["title", "metaDescription", "slug", "imagePrompt", "imageAltText"]
-            }
-        }
-    }));
-
-    const parsed = parseJsonResponse<SeoMetadata>(response.text);
+    const response = await withRetry(() => callOpenRouterContent(prompt));
+    const parsed = parseJsonResponse<SeoMetadata>(response);
     
     // Ensure slug is lowercase and properly formatted
     const cleanSlug = (parsed.slug || 'article')
@@ -1730,19 +1604,9 @@ Return as JSON:
 }`;
 
     try {
-        // Use Gemini with Google Search grounding for real SERP data
-        // Note: googleSearch tool cannot be used with responseMimeType json
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                tools: [{
-                    googleSearch: {}
-                }]
-            }
-        });
-
-        const parsed = parseJsonResponse<{ competitors: SerpCompetitor[] }>(response.text);
+        // Use OpenRouter for SERP analysis (note: no real-time search, uses training data)
+        const response = await withRetry(() => callOpenRouterContent(prompt));
+        const parsed = parseJsonResponse<{ competitors: SerpCompetitor[] }>(response);
         return (parsed.competitors || []).slice(0, maxResults).map((c: any, i: number) => ({
             rank: c.rank || i + 1,
             domain: c.domain || 'unknown',
@@ -1752,7 +1616,7 @@ Return as JSON:
             headings: Array.isArray(c.headings) ? c.headings : []
         }));
     } catch (error) {
-        console.error('Failed to analyze SERP competitors with Gemini:', error);
+        console.error('Failed to analyze SERP competitors:', error);
     }
     
     return [];
@@ -1781,11 +1645,8 @@ ${langInstruction}
 Generate the disclaimer text only, no additional commentary.`;
 
     try {
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: prompt
-        });
-        return response.text?.trim() || getDefaultDisclaimer(language);
+        const response = await withRetry(() => callOpenRouterContent(prompt, false));
+        return response?.trim() || getDefaultDisclaimer(language);
     } catch (error) {
         console.error('Failed to generate responsible gambling disclaimer:', error);
         return getDefaultDisclaimer(language);
@@ -1877,11 +1738,8 @@ Return JSON:
 }`;
 
     try {
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: prompt
-        });
-        const parsed = parseJsonResponse<{ sections: string[] }>(response.text);
+        const response = await withRetry(() => callOpenRouterContent(prompt));
+        const parsed = parseJsonResponse<{ sections: string[] }>(response);
         return (parsed.sections || []).slice(0, targetCount);
     } catch (error) {
         console.error('Failed to suggest additional sections:', error);
@@ -1965,11 +1823,8 @@ ${platformContext}
 Generate the section content as HTML.`;
 
     try {
-        const response = await ai.models.generateContent({
-            model: textModel,
-            contents: prompt
-        });
-        let content = response.text || '';
+        const response = await withRetry(() => callOpenRouterContent(prompt, false));
+        let content = response || '';
         // Clean up response
         content = content.replace(/```html?/gi, '').replace(/```/g, '').trim();
         if (!content.startsWith('<')) {

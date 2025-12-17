@@ -386,7 +386,6 @@ export const InputForm: React.FC<InputFormProps> = ({
                                 className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value={WritingModel.GPT_5_2}>GPT 5.2</option>
-                                <option value={WritingModel.GEMINI_2_5_PRO}>Gemini 2.5 Pro</option>
                                 <option value={WritingModel.CLAUDE_SONNET_4_5}>Claude Sonnet 4.5</option>
                             </select>
                         </div>
@@ -499,7 +498,6 @@ export const InputForm: React.FC<InputFormProps> = ({
                                 className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value={WritingModel.GPT_5_2}>GPT 5.2</option>
-                                <option value={WritingModel.GEMINI_2_5_PRO}>Gemini 2.5 Pro</option>
                                 <option value={WritingModel.CLAUDE_SONNET_4_5}>Claude Sonnet 4.5</option>
                             </select>
                         </div>

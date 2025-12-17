@@ -6,6 +6,8 @@ interface CitationLinkProps {
     index?: number;
 }
 
+// Note: AI models hallucinate URLs, so we use Google Search as the primary link
+// This ensures users always get working links to find the actual source
 export const CitationLink: React.FC<CitationLinkProps> = ({ citation, index }) => {
     return (
         <span className="inline-flex items-center gap-1">
@@ -13,25 +15,17 @@ export const CitationLink: React.FC<CitationLinkProps> = ({ citation, index }) =
                 <sup className="text-xs text-gray-400">[{index + 1}]</sup>
             )}
             <a
-                href={citation.vertexUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 hover:underline text-sm"
-                title={`Source: ${citation.domain}`}
-            >
-                {citation.title.length > 60 ? citation.title.substring(0, 60) + '...' : citation.title}
-            </a>
-            <a
                 href={citation.googleSearchUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-400 hover:text-gray-600 ml-1"
-                title="Search on Google (backup if link is broken)"
+                className="text-blue-600 hover:text-blue-800 hover:underline text-sm"
+                title={`Search Google for: ${citation.domain}`}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                {citation.domain}
             </a>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-400 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
         </span>
     );
 };
@@ -46,33 +40,28 @@ export const CitationList: React.FC<CitationListProps> = ({ citations, title = "
 
     return (
         <div className="mt-6 pt-4 border-t border-gray-200">
-            <h4 className="text-sm font-semibold text-gray-700 mb-3">{title}</h4>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                {title}
+                <span className="ml-2 text-xs font-normal text-gray-500">(click to search on Google)</span>
+            </h4>
             <ul className="space-y-2">
                 {citations.map((citation, index) => (
                     <li key={index} className="flex items-start gap-2">
                         <span className="text-xs text-gray-400 font-mono mt-0.5">[{index + 1}]</span>
-                        <div className="flex-1">
-                            <a
-                                href={citation.vertexUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 hover:underline text-sm"
-                            >
-                                {citation.title}
-                            </a>
-                            <span className="text-xs text-gray-400 ml-2">({citation.domain})</span>
+                        <div className="flex-1 flex items-center gap-2">
                             <a
                                 href={citation.googleSearchUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center text-xs text-gray-400 hover:text-gray-600 ml-2"
-                                title="Search on Google (backup)"
+                                className="text-blue-600 hover:text-blue-800 hover:underline text-sm inline-flex items-center gap-1"
+                                title={`Search Google for information from ${citation.domain}`}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                {citation.domain}
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>
-                                Google
                             </a>
+                            <span className="text-xs text-gray-500">— {citation.title.length > 50 ? citation.title.substring(0, 50) + '...' : citation.title}</span>
                         </div>
                     </li>
                 ))}
@@ -82,5 +71,6 @@ export const CitationList: React.FC<CitationListProps> = ({ citations, title = "
 };
 
 export const formatCitationHtml = (citation: Citation): string => {
-    return `<a href="${citation.vertexUrl}" target="_blank" rel="noopener noreferrer">${citation.title}</a> <a href="${citation.googleSearchUrl}" target="_blank" rel="noopener noreferrer" title="Google Search backup">[🔍]</a>`;
+    // Use Google Search URL as primary link since AI-generated URLs are often hallucinated
+    return `<a href="${citation.googleSearchUrl}" target="_blank" rel="noopener noreferrer" title="Search Google for ${citation.domain}">(${citation.domain})</a>`;
 };

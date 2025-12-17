@@ -47,13 +47,49 @@ const Loader: React.FC<{ message: string }> = ({ message }) => (
     </div>
 );
 
+// --- Animated Research Indicator ---
+const AnimatedResearchingBadge: React.FC<{ message?: string }> = ({ message }) => {
+    const [dots, setDots] = React.useState('');
+    
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            setDots(prev => prev.length >= 3 ? '' : prev + '.');
+        }, 400);
+        return () => clearInterval(interval);
+    }, []);
+    
+    return (
+        <div className="flex justify-center mb-4">
+            <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-full shadow-lg animate-pulse">
+                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="font-medium">{message || 'Researching'}<span className="inline-block w-6 text-left">{dots}</span></span>
+            </div>
+        </div>
+    );
+};
+
 // --- Research Progress Component ---
 const ResearchProgress: React.FC<{ 
-    platforms: { name: string; status: 'pending' | 'researching' | 'completed' | 'error' }[] 
-}> = ({ platforms }) => (
+    platforms: { name: string; status: 'pending' | 'researching' | 'completed' | 'error' }[];
+    isStillWorking?: boolean;
+    currentTask?: string;
+}> = ({ platforms, isStillWorking, currentTask }) => (
     <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6">
+        {/* Show animated indicator when still working */}
+        {isStillWorking && (
+            <AnimatedResearchingBadge message={currentTask} />
+        )}
+        
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
             <span className="mr-2">🔍</span> Research Progress
+            {isStillWorking && (
+                <span className="ml-2 text-xs font-normal text-purple-600 bg-purple-100 px-2 py-1 rounded-full animate-pulse">
+                    In Progress
+                </span>
+            )}
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {platforms.map((p, index) => (
@@ -345,10 +381,21 @@ const App: React.FC = () => {
             // Don't change workflowPhase - stay in 'researching'
             setLoadingMessage('Processing research data...');
             
+            // Helper to add delay between Gemini API calls to avoid 503 overload
+            const delayMs = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+            const GEMINI_DELAY_MS = 5000; // 5 seconds between Gemini calls
+            
             for (let i = 0; i < researchResults.length; i++) {
                 const research = researchResults[i];
                 const platformInput = config.platforms.find(p => p.name === research.name);
-                setLoadingMessage(`Researching: ${research.name} (${i + 1}/${researchResults.length})`);
+                
+                // Add delay before each Gemini call (except first) to prevent 503 overload
+                if (i > 0) {
+                    setLoadingMessage(`Waiting before processing ${research.name}... (${i + 1}/${researchResults.length})`);
+                    await delayMs(GEMINI_DELAY_MS);
+                }
+                
+                setLoadingMessage(`Writing review: ${research.name} (${i + 1}/${researchResults.length})`);
                 
                 const review = await generatePlatformReview(
                     research,
@@ -1056,7 +1103,9 @@ Image Alt Text: ${seo.imageAltText}
                             platforms={platformResearch.map(p => ({ 
                                 name: p.name, 
                                 status: p.researchStatus 
-                            }))} 
+                            }))}
+                            isStillWorking={isLoading}
+                            currentTask={loadingMessage}
                         />
                     )}
 
