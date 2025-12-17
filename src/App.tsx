@@ -340,13 +340,14 @@ const App: React.FC = () => {
             setPlatformResearch(researchResults);
             
             // Generate reviews for each platform (saves to cache)
-            setWorkflowPhase('generating-reviews');
-            setLoadingMessage('Generating platform reviews...');
+            // Keep showing "researching" phase to user - reviews are part of research
+            // Don't change workflowPhase - stay in 'researching'
+            setLoadingMessage('Processing research data...');
             
             for (let i = 0; i < researchResults.length; i++) {
                 const research = researchResults[i];
                 const platformInput = config.platforms.find(p => p.name === research.name);
-                setLoadingMessage(`Generating review: ${research.name} (${i + 1}/${researchResults.length})`);
+                setLoadingMessage(`Researching: ${research.name} (${i + 1}/${researchResults.length})`);
                 
                 const review = await generatePlatformReview(
                     research,
@@ -998,10 +999,44 @@ Image Alt Text: ${seo.imageAltText}
                         </div>
                     )}
 
-                    {/* Error Display */}
+                    {/* Error Display with Retry */}
                     {error && (
-                        <div className="bg-red-100 border border-red-400 text-red-700 p-4 rounded-lg">
-                            {error}
+                        <div className="bg-red-50 border-2 border-red-300 text-red-700 p-4 rounded-lg">
+                            <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                    <p className="font-semibold mb-1">Error occurred</p>
+                                    <p className="text-sm">{error}</p>
+                                    {error.includes('503') && (
+                                        <p className="text-xs text-red-500 mt-2">
+                                            Tip: The AI model is temporarily overloaded. Wait 30-60 seconds and try again.
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex gap-2 ml-4">
+                                    <button
+                                        onClick={() => setError(null)}
+                                        className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition"
+                                    >
+                                        Dismiss
+                                    </button>
+                                    {appMode === 'assemble' && cacheSummary.canAssemble && (
+                                        <button
+                                            onClick={handleAssembleArticle}
+                                            className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md transition"
+                                        >
+                                            Try Again
+                                        </button>
+                                    )}
+                                    {appMode === 'research' && (
+                                        <button
+                                            onClick={handleStartResearch}
+                                            className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition"
+                                        >
+                                            Try Again
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
 
