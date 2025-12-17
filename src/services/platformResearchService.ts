@@ -219,13 +219,15 @@ const buildCitationsIndexBlock = (citations: Citation[]): string => {
 };
 
 const IN_TEXT_CITATION_RULES_HTML = `
-**Citation Format:**
-- Add in-text citations INSIDE paragraphs (not in a separate list)
-- Use format: <a href="FULL_URL" target="_blank" rel="noopener noreferrer">(domain.com)</a>
+**CRITICAL - Citation Rules (MUST FOLLOW):**
+- ONLY use URLs from the "Citations Index" provided below - NEVER invent or guess URLs
+- If a URL is not in the Citations Index, DO NOT include it as a hyperlink
+- Add citations INSIDE paragraphs using format: <a href="EXACT_URL_FROM_INDEX" target="_blank" rel="noopener noreferrer">(domain.com)</a>
 - Example: Licensed by Curacao eGaming <a href="https://curacaoegaming.lc/verify" target="_blank" rel="noopener noreferrer">(curacaoegaming.lc)</a>
 - Each source should appear ONLY ONCE in the entire article
-- Only cite credibility-important info (licenses, company details, bonuses) - NOT generic knowledge
-- Use ONLY the URLs from the citations index below
+- Only cite credibility-important info (licenses, company details, bonuses)
+- If no valid URL exists for a fact, state the fact WITHOUT a hyperlink
+- NEVER fabricate URLs - broken links destroy credibility
 `;
 
 // --- Tone, SEO, and Keyword Helpers ---

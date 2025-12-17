@@ -4,6 +4,7 @@ import { ComparisonTable } from './components/output/ComparisonTable';
 import { PlatformReviewCard } from './components/output/PlatformReviewCard';
 import { FAQSection } from './components/output/FAQSection';
 import { CitationList } from './components/CitationLink';
+import { ResearchEvidencePanel } from './components/ResearchEvidencePanel';
 import { getUiText, getHtmlLang } from './utils/uiText';
 import { 
     researchAllPlatforms, 
@@ -998,6 +999,14 @@ Image Alt Text: ${seo.imageAltText}
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* Research Evidence Panel - Shows raw research data and citations for verification */}
+                    {platformResearch.length > 0 && workflowPhase === 'idle' && (
+                        <ResearchEvidencePanel 
+                            platformResearch={platformResearch}
+                            title="📚 Research Evidence (Verify Sources)"
+                        />
                     )}
 
                     {/* Error Display with Retry */}
