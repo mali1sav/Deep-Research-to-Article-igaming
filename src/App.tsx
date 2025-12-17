@@ -658,13 +658,28 @@ Image Alt Text: ${seo.imageAltText}
         });
         html += `</ol>\n\n`;
 
-        // Comparison table
+        // Comparison table (dynamic columns chosen by LLM)
         if (generatedArticle.comparisonTable.length > 0) {
             html += `<h2>${uiText.platformComparison}</h2>\n`;
             if (useShortcodes) html += `[su_table responsive="yes"]\n`;
-            html += `<table>\n<thead>\n<tr><th>${uiText.tablePlatform}</th><th>${uiText.tableLicense}</th><th>${uiText.tableMinDeposit}</th><th>${uiText.tablePayoutSpeed}</th><th>${uiText.tableRating}</th></tr>\n</thead>\n<tbody>\n`;
+            
+            // Extract dynamic columns from first row (excluding platformName and rating)
+            const firstRow = generatedArticle.comparisonTable[0] as Record<string, any>;
+            const dynamicColumns = Object.keys(firstRow).filter(k => 
+                k !== 'platformName' && k !== 'rating'
+            );
+            
+            // Build header row dynamically
+            const headerCells = [uiText.tablePlatform, ...dynamicColumns.map(col => 
+                col.charAt(0).toUpperCase() + col.slice(1).replace(/([A-Z])/g, ' $1').trim()
+            ), uiText.tableRating];
+            html += `<table>\n<thead>\n<tr>${headerCells.map(h => `<th>${h}</th>`).join('')}</tr>\n</thead>\n<tbody>\n`;
+            
+            // Build data rows dynamically
             generatedArticle.comparisonTable.forEach(row => {
-                html += `<tr><td>${row.platformName}</td><td>${row.license}</td><td>${row.minDeposit}</td><td>${row.payoutSpeed}</td><td>${row.rating}</td></tr>\n`;
+                const rowData = row as Record<string, any>;
+                const cells = [rowData.platformName, ...dynamicColumns.map(col => rowData[col] || '-'), rowData.rating];
+                html += `<tr>${cells.map(c => `<td>${c}</td>`).join('')}</tr>\n`;
             });
             html += `</tbody>\n</table>\n`;
             if (useShortcodes) html += `[/su_table]\n`;

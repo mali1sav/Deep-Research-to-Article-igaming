@@ -1245,10 +1245,14 @@ export const generatePlatformReview = async (
     const includeProsCons = config.includeSections?.prosCons !== false;
     const includeVerdict = config.includeSections?.verdict !== false;
     
-    // Build dynamic scoring categories from vertical config (only if ratings enabled)
-    const scoringCategoriesText = includeRatings 
+    // Get primary keyword and article context for dynamic rating categories
+    const primaryKeyword = config.targetKeywords?.find(k => k.isPrimary)?.keyword || '';
+    const articleNarrative = config.introNarrative || '';
+    
+    // Build available scoring categories from vertical config (for LLM to choose from)
+    const availableCategoriesText = includeRatings 
         ? verticalConfig.scoringCategories
-            .map((cat, idx) => `${idx + 1}. ${cat.label} - Score based on: ${cat.description}`)
+            .map((cat, idx) => `${idx + 1}. ${cat.label} - ${cat.description}`)
             .join('\n')
         : '';
     
@@ -1292,20 +1296,30 @@ export const generatePlatformReview = async (
         requirements.push(`- Verdict: Write approximately ${config.sectionWordCounts.verdict} words as a balanced conclusion`);
     }
 
-    // Build scoring section only if ratings enabled
+    // Build scoring section only if ratings enabled - let LLM choose relevant categories
     const scoringSection = includeRatings ? `
+**ARTICLE CONTEXT FOR RATING:**
+- Vertical: ${verticalConfig.name}
+- Primary Keyword: ${primaryKeyword || 'Not specified'}
+- Article Angle: ${articleNarrative || 'General review'}
+
+**AVAILABLE RATING CATEGORIES (choose 4-6 most relevant):**
+${availableCategoriesText}
+
+**YOUR TASK:** Choose 4-6 rating categories that are MOST RELEVANT to:
+1. The article's angle/narrative
+2. The platform being reviewed
+3. What matters most to readers searching for "${primaryKeyword || verticalConfig.name}"
+
 **SCORING METHODOLOGY (apply strictly):**
 Each category is scored 1-10 based on these criteria:
-- **10 (Exceptional):** Industry-leading, significantly better than competitors, verified by multiple sources
+- **10 (Exceptional):** Industry-leading, significantly better than competitors
 - **9 (Excellent):** Top-tier performance with minor room for improvement
-- **8 (Very Good):** Above average, meets high standards with some limitations
-- **7 (Good):** Solid performance, meets expectations without excelling
-- **6 (Adequate):** Acceptable but has notable gaps or limitations
-- **5 (Average):** Mediocre, neither good nor bad, room for improvement
-- **4-1 (Below Average to Poor):** Significant issues, not recommended for this category
-
-**Rating Categories:**
-${scoringCategoriesText}
+- **8 (Very Good):** Above average, meets high standards
+- **7 (Good):** Solid performance, meets expectations
+- **6 (Adequate):** Acceptable but has notable gaps
+- **5 (Average):** Mediocre, room for improvement
+- **4-1 (Below Average to Poor):** Significant issues
 ` : '';
 
     const prompt = `You are an impartial ${verticalConfig.name.toLowerCase()} industry analyst writing a factual review for "${research.name}".
