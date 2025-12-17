@@ -133,7 +133,7 @@ const loadSavedConfig = (): ArticleConfig | null => {
             }
             const validWritingModels = Object.values(WritingModel);
             if (!validWritingModels.includes(parsed.writingModel)) {
-                parsed.writingModel = WritingModel.GEMINI_2_5_PRO;
+                parsed.writingModel = WritingModel.GPT_5_2;
             }
             const validTones = Object.values(ToneOfVoice);
             if (!validTones.includes(parsed.toneOfVoice)) {
@@ -174,7 +174,7 @@ const App: React.FC = () => {
             includeSections: DEFAULT_INCLUDE_SECTIONS,
             targetKeywords: [],
             seoMode: SeoMode.DEFAULT,
-            writingModel: WritingModel.GEMINI_2_5_PRO,
+            writingModel: WritingModel.GPT_5_2,
             toneOfVoice: ToneOfVoice.PROFESSIONAL,
         };
     });
@@ -247,7 +247,7 @@ const App: React.FC = () => {
             includeSections: DEFAULT_INCLUDE_SECTIONS,
             targetKeywords: [],
             seoMode: SeoMode.DEFAULT,
-            writingModel: WritingModel.GEMINI_2_5_PRO,
+            writingModel: WritingModel.GPT_5_2,
             toneOfVoice: ToneOfVoice.PROFESSIONAL,
         };
         setConfig(defaultConfig);
