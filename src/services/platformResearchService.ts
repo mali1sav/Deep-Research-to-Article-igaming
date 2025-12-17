@@ -1161,6 +1161,9 @@ export const generateComparisonTable = async (
     
     // Get article narrative/angle
     const articleNarrative = config.introNarrative || '';
+    
+    // Get custom instruction for additional context
+    const customInstruction = config.customInstructions || '';
 
     const prompt = `You are an expert ${verticalConfig.name.toLowerCase()} analyst. Create a comparison table that helps readers make informed decisions.
 
@@ -1171,6 +1174,7 @@ ${langInstruction}
 - Primary Keyword: ${primaryKeyword || 'Not specified'}
 - Article Angle/Narrative: ${articleNarrative || 'General comparison'}
 - Platforms Being Compared: ${platformResearch.map(p => p.name).join(', ')}
+${customInstruction ? `- Custom Instructions: ${customInstruction}` : ''}
 
 **AVAILABLE PLATFORM DATA:**
 ${JSON.stringify(researchData, null, 2)}
@@ -1297,11 +1301,13 @@ export const generatePlatformReview = async (
     }
 
     // Build scoring section only if ratings enabled - let LLM choose relevant categories
+    const userCustomInstruction = config.customInstructions || '';
     const scoringSection = includeRatings ? `
 **ARTICLE CONTEXT FOR RATING:**
 - Vertical: ${verticalConfig.name}
 - Primary Keyword: ${primaryKeyword || 'Not specified'}
 - Article Angle: ${articleNarrative || 'General review'}
+${userCustomInstruction ? `- Custom Instructions: ${userCustomInstruction}` : ''}
 
 **AVAILABLE RATING CATEGORIES (choose 4-6 most relevant):**
 ${availableCategoriesText}
@@ -1310,6 +1316,7 @@ ${availableCategoriesText}
 1. The article's angle/narrative
 2. The platform being reviewed
 3. What matters most to readers searching for "${primaryKeyword || verticalConfig.name}"
+${userCustomInstruction ? `4. User's custom instructions: "${userCustomInstruction}"` : ''}
 
 **SCORING METHODOLOGY (apply strictly):**
 Each category is scored 1-10 based on these criteria:
