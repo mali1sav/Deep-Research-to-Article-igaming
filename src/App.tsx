@@ -896,6 +896,7 @@ Image Alt Text: ${seo.imageAltText}
                         setConfig={setConfig}
                         onClearAll={handleClearAll}
                         onClearResearchCache={handleClearResearchCache}
+                        onCacheChanged={refreshCacheSummary}
                         onSubmit={handleStartResearch}
                         isLoading={isLoading}
                         serpCompetitors={serpCompetitors}

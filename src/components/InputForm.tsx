@@ -12,7 +12,7 @@ import {
     VerticalType
 } from '../types';
 import { getVerticalConfig, getVerticalOptions } from '../config/verticals';
-import { generateResponsibleGamblingDisclaimer, isPlatformCached, getCacheInfo } from '../services/platformResearchService';
+import { generateResponsibleGamblingDisclaimer, isPlatformCached, getCacheInfo, isReviewCached, deletePlatformFromCache } from '../services/platformResearchService';
 
 // Icons
 const PlusIcon = () => (
@@ -53,6 +53,7 @@ interface InputFormProps {
     setConfig: (config: ArticleConfig) => void;
     onClearAll: () => void;
     onClearResearchCache?: () => void;
+    onCacheChanged?: () => void; // Called when individual platform cache is modified
     onSubmit: () => void;
     isLoading: boolean;
     // SERP Analysis props
@@ -66,6 +67,7 @@ export const InputForm: React.FC<InputFormProps> = ({
     setConfig, 
     onClearAll,
     onClearResearchCache,
+    onCacheChanged,
     onSubmit, 
     isLoading,
     serpCompetitors = [],
@@ -680,8 +682,15 @@ export const InputForm: React.FC<InputFormProps> = ({
                     {config.platforms.length > 0 && (
                         <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
                             {config.platforms.map((platform, index) => {
+                                // Use isReviewCached for accurate "ready in corpus" status
                                 // Only check cache when NOT loading - avoids showing "cached" during active research
-                                const isCached = !isLoading && isPlatformCached(platform.name, config.vertical || 'gambling');
+                                const isCached = !isLoading && isReviewCached(platform.name, config.vertical || 'gambling');
+                                
+                                const handleReResearch = () => {
+                                    deletePlatformFromCache(platform.name);
+                                    onCacheChanged?.();
+                                };
+                                
                                 return (
                                     <div key={index} className="flex items-center gap-3 p-3">
                                         <span className="text-sm font-medium text-gray-500 w-6">{index + 1}.</span>
@@ -690,9 +699,9 @@ export const InputForm: React.FC<InputFormProps> = ({
                                             {isCached && (
                                                 <span 
                                                     className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"
-                                                    title="Research data cached - will load instantly"
+                                                    title="Review cached - ready in corpus"
                                                 >
-                                                    ✓ cached
+                                                    ✓ ready
                                                 </span>
                                             )}
                                         </span>
@@ -703,6 +712,18 @@ export const InputForm: React.FC<InputFormProps> = ({
                                             onChange={(e) => updatePlatformAffiliateUrl(index, e.target.value)}
                                             className="flex-1 bg-gray-50 border border-gray-200 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                                         />
+                                        {isCached && (
+                                            <button
+                                                type="button"
+                                                onClick={handleReResearch}
+                                                disabled={isLoading}
+                                                aria-label={`Re-research ${platform.name}`}
+                                                title="Clear cache and re-research this platform"
+                                                className="px-2 py-1 text-xs text-orange-600 hover:bg-orange-50 rounded-md transition disabled:opacity-50"
+                                            >
+                                                🔄 Re-research
+                                            </button>
+                                        )}
                                         <button
                                             type="button"
                                             onClick={() => removePlatform(index)}

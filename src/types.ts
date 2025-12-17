@@ -17,7 +17,7 @@ export enum Language {
 
 export enum WritingModel {
     GPT_5_2 = 'openai/gpt-5.2',
-    GEMINI_2_5_PRO = 'google/gemini-2.5-pro',
+    GEMINI_2_5_PRO = 'google/gemini-2.5-flash',
     CLAUDE_SONNET_4_5 = 'anthropic/claude-sonnet-4.5',
 }
 

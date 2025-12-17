@@ -731,6 +731,41 @@ export const clearAllCaches = (): void => {
     clearReviewCache();
 };
 
+/**
+ * Delete a specific platform from BOTH research and review caches.
+ * Used when user wants to re-research a platform.
+ */
+export const deletePlatformFromCache = (platformName: string): void => {
+    const normalizedName = platformName.toLowerCase();
+    
+    // Remove from research cache
+    try {
+        const researchCache = JSON.parse(localStorage.getItem(RESEARCH_CACHE_KEY) || '{}');
+        delete researchCache[normalizedName];
+        localStorage.setItem(RESEARCH_CACHE_KEY, JSON.stringify(researchCache));
+    } catch (error) {
+        console.warn('Failed to delete from research cache:', error);
+    }
+    
+    // Remove from review cache
+    try {
+        const reviewCache = getReviewCache();
+        delete reviewCache[normalizedName];
+        localStorage.setItem(REVIEW_CACHE_KEY, JSON.stringify(reviewCache));
+    } catch (error) {
+        console.warn('Failed to delete from review cache:', error);
+    }
+};
+
+/**
+ * Check if a platform has a cached REVIEW (not just research).
+ * This is the authoritative check for whether a platform is "ready" in the corpus.
+ */
+export const isReviewCached = (platformName: string, vertical: VerticalType): boolean => {
+    const cached = getReviewFromCache(platformName, vertical);
+    return cached !== null;
+};
+
 // Get combined cache summary for UI
 export const getCacheSummary = (vertical: VerticalType): {
     researchCount: number;
