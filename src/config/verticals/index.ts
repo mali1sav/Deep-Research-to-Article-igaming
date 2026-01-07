@@ -1,14 +1,17 @@
 import { VerticalConfig, VerticalType } from './types';
 import { gamblingConfig } from './gambling';
 import { cryptoConfig } from './crypto';
+import { walletConfig } from './wallet';
 
 export * from './types';
 export { gamblingConfig } from './gambling';
 export { cryptoConfig } from './crypto';
+export { walletConfig } from './wallet';
 
 const verticalConfigs: Record<VerticalType, VerticalConfig> = {
     gambling: gamblingConfig,
-    crypto: cryptoConfig
+    crypto: cryptoConfig,
+    wallet: walletConfig
 };
 
 export const getVerticalConfig = (vertical: VerticalType): VerticalConfig => {

@@ -3,6 +3,7 @@ import { InputForm } from './components/InputForm';
 import { ComparisonTable } from './components/output/ComparisonTable';
 import { PlatformReviewCard } from './components/output/PlatformReviewCard';
 import { FAQSection } from './components/output/FAQSection';
+import { SinglePlatformReviewOutput } from './components/output/SinglePlatformReviewOutput';
 import { CitationList } from './components/CitationLink';
 import { ResearchEvidencePanel } from './components/ResearchEvidencePanel';
 import { getUiText, getHtmlLang } from './utils/uiText';
@@ -11,6 +12,7 @@ import {
     generateFullArticle,
     analyzeSerpCompetitors,
     generateReviewsOnly,
+    generateSinglePlatformArticle,
     SerpCompetitor,
     clearResearchCache,
     clearReviewCache,
@@ -27,8 +29,10 @@ import {
     Language, 
     PlatformResearch, 
     GeneratedArticle,
+    SinglePlatformArticle,
     WorkflowPhase,
     AppMode,
+    ArticleMode,
     WritingModel,
     ResearchModel,
     SeoMode,
@@ -57,122 +61,192 @@ const WalkthroughModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
             title: "📋 Welcome to Article Generator",
             content: (
                 <div className="space-y-4">
-                    <p className="text-gray-700">This tool helps you create <strong>SEO-optimized comparison articles</strong> for gambling, crypto, and other verticals.</p>
+                    <p className="text-gray-700">This tool helps you create <strong>AI-powered review articles</strong> with real citations from web research.</p>
                     <div className="bg-blue-50 p-4 rounded-lg">
-                        <p className="font-semibold text-blue-800 mb-2">🎯 Two Modes Available:</p>
+                        <p className="font-semibold text-blue-800 mb-2">🎯 Three Article Modes:</p>
                         <ul className="space-y-2 text-sm">
-                            <li><strong>📝 Full Article Mode</strong> — Creates complete article with intro, comparison table, reviews, FAQs</li>
-                            <li><strong>🔄 Review Only Mode</strong> — Creates individual platform reviews only (no intro, no comparison)</li>
+                            <li><strong>📊 Full Comparison</strong> — Compare 3-7 platforms with table, reviews, FAQs</li>
+                            <li><strong>📝 Single Platform Review</strong> — Deep-dive review of one platform (NEW!)</li>
+                            <li><strong>📋 Review Snippet</strong> — Quick review blocks for existing articles</li>
                         </ul>
                     </div>
                 </div>
             )
         },
         {
-            title: "🔄 Workflow: Step 1 — Research",
+            title: "🏢 Content Verticals",
             content: (
                 <div className="space-y-4">
-                    <div className="bg-green-50 p-4 rounded-lg">
-                        <p className="font-semibold text-green-800 mb-2">First, research your platforms:</p>
-                        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-                            <li>Enter platform names (e.g., "Stake", "BC.Game", "1xBet")</li>
-                            <li>Select <strong>Research Model</strong>: Perplexity Sonar (recommended for fresh data)</li>
-                            <li>Click <strong>"Start Research"</strong> button</li>
-                            <li>Wait for AI to gather information from the web</li>
-                        </ol>
+                    <p className="text-gray-700">Choose the vertical that matches your content:</p>
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-red-50 p-3 rounded-lg text-center">
+                            <p className="text-2xl mb-1">🎰</p>
+                            <p className="font-semibold text-red-800">Online Gambling</p>
+                            <p className="text-xs text-gray-600">Casinos, betting, sportsbooks</p>
+                        </div>
+                        <div className="bg-blue-50 p-3 rounded-lg text-center">
+                            <p className="text-2xl mb-1">₿</p>
+                            <p className="font-semibold text-blue-800">Crypto Platforms</p>
+                            <p className="text-xs text-gray-600">Exchanges, trading, DeFi</p>
+                        </div>
+                        <div className="bg-purple-50 p-3 rounded-lg text-center">
+                            <p className="text-2xl mb-1">👛</p>
+                            <p className="font-semibold text-purple-800">Crypto Wallet</p>
+                            <p className="text-xs text-gray-600">Hardware, software wallets</p>
+                        </div>
                     </div>
-                    <p className="text-sm text-gray-600">💡 <strong>Tip:</strong> Research is cached. If you close the browser, your research is saved!</p>
+                    <p className="text-sm text-gray-600">💡 Each vertical has tailored research prompts, scoring categories, and section templates.</p>
                 </div>
             )
         },
         {
-            title: "✍️ Workflow: Step 2 — Generate Article",
+            title: "📊 Mode 1: Full Comparison",
+            content: (
+                <div className="space-y-4">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                        <p className="font-semibold text-blue-800 mb-2">For comparing multiple platforms (3-7 recommended)</p>
+                        <ul className="text-sm space-y-1 text-gray-700">
+                            <li>✅ SEO-optimized introduction</li>
+                            <li>✅ Platform quick list</li>
+                            <li>✅ Comparison table (auto-generated columns)</li>
+                            <li>✅ Individual reviews with ratings</li>
+                            <li>✅ FAQs section</li>
+                            <li>✅ SEO metadata (title, description)</li>
+                        </ul>
+                    </div>
+                    <div className="bg-gray-100 p-3 rounded-lg text-sm">
+                        <p><strong>Example:</strong> "Best Online Casinos 2025" or "Top Crypto Exchanges Compared"</p>
+                    </div>
+                </div>
+            )
+        },
+        {
+            title: "📝 Mode 2: Single Platform Review",
             content: (
                 <div className="space-y-4">
                     <div className="bg-purple-50 p-4 rounded-lg">
-                        <p className="font-semibold text-purple-800 mb-2">After research completes:</p>
-                        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-                            <li>Review the research results (check the evidence panel)</li>
-                            <li>Click <strong>"Generate Article"</strong> or <strong>"Generate Reviews"</strong></li>
-                            <li>Select <strong>Writing Model</strong>: GPT 5.2 or Claude Sonnet 4.5</li>
-                            <li>Wait for AI to write the content</li>
-                        </ol>
+                        <p className="font-semibold text-purple-800 mb-2">Deep-dive review of ONE platform (NEW!)</p>
+                        <ul className="text-sm space-y-1 text-gray-700">
+                            <li>✅ Comprehensive intro tailored to the platform</li>
+                            <li>✅ Platform information sheet</li>
+                            <li>✅ Multiple detailed sections (5 deep-dive sections)</li>
+                            <li>✅ Pros & Cons analysis</li>
+                            <li>✅ Final verdict</li>
+                            <li>✅ Platform-specific FAQs</li>
+                        </ul>
                     </div>
-                    <p className="text-sm text-gray-600">💡 <strong>Tip:</strong> The Writing Model affects quality. GPT 5.2 and Claude produce better content than basic models.</p>
+                    <div className="bg-gray-100 p-3 rounded-lg text-sm">
+                        <p><strong>Example:</strong> "Binance Review 2025" or "Ledger Nano X Review"</p>
+                    </div>
                 </div>
             )
         },
         {
-            title: "📤 Workflow: Step 3 — Copy to WordPress",
+            title: "📋 Mode 3: Review Snippet",
             content: (
                 <div className="space-y-4">
-                    <div className="bg-amber-50 p-4 rounded-lg">
-                        <p className="font-semibold text-amber-800 mb-2">Export your content:</p>
-                        <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-                            <li>Click <strong>"Copy for WordPress"</strong> button</li>
-                            <li>HTML is copied to clipboard with shortcodes</li>
-                            <li>Paste into WordPress editor (HTML/Code view)</li>
-                            <li>Review and edit as needed</li>
-                        </ol>
+                    <div className="bg-orange-50 p-4 rounded-lg">
+                        <p className="font-semibold text-orange-800 mb-2">Quick review blocks for existing articles</p>
+                        <ul className="text-sm space-y-1 text-gray-700">
+                            <li>✅ Individual review blocks only</li>
+                            <li>✅ Optional: Infosheet, Ratings, Pros/Cons, Verdict</li>
+                            <li>❌ No introduction</li>
+                            <li>❌ No comparison table</li>
+                            <li>❌ No FAQs</li>
+                        </ul>
                     </div>
-                    <p className="text-sm text-gray-600">💡 <strong>Tip:</strong> Citation links are real URLs from Perplexity Sonar — editors don't need to find sources manually!</p>
+                    <div className="bg-gray-100 p-3 rounded-lg text-sm">
+                        <p><strong>Use case:</strong> Adding 1-2 new platforms to an existing comparison article</p>
+                    </div>
                 </div>
             )
         },
         {
-            title: "⚙️ Key Settings to Know",
+            title: "🔄 Workflow: Research → Generate → Copy",
+            content: (
+                <div className="space-y-4">
+                    <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                            <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">1</span>
+                            <div>
+                                <p className="font-semibold">Research Platforms</p>
+                                <p className="text-sm text-gray-600">Add platform names → Click "Research Platforms" → AI gathers web data</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <span className="bg-purple-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">2</span>
+                            <div>
+                                <p className="font-semibold">Generate Article</p>
+                                <p className="text-sm text-gray-600">When cached → Button changes to "Generate Article" → AI writes content</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <span className="bg-amber-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">3</span>
+                            <div>
+                                <p className="font-semibold">Copy to WordPress</p>
+                                <p className="text-sm text-gray-600">Click "Copy for WordPress" → Paste in HTML editor → Done!</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p className="text-sm text-gray-600 bg-gray-100 p-2 rounded">💡 <strong>Research is cached!</strong> Close browser, come back later — your data is saved.</p>
+                </div>
+            )
+        },
+        {
+            title: "⚙️ Key Settings",
             content: (
                 <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3 text-sm">
                         <div className="bg-gray-50 p-3 rounded-lg">
                             <p className="font-semibold">🔍 Research Model</p>
-                            <p className="text-gray-600">Perplexity = Fresh web data</p>
+                            <p className="text-gray-600"><strong>Perplexity Sonar</strong> = Real web sources</p>
                             <p className="text-gray-600">Tongyi = Training data only</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded-lg">
                             <p className="font-semibold">✍️ Writing Model</p>
-                            <p className="text-gray-600">GPT 5.2 = Best quality</p>
-                            <p className="text-gray-600">Claude = Also excellent</p>
+                            <p className="text-gray-600"><strong>GPT 5.2</strong> or <strong>Claude</strong> = Best quality</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded-lg">
                             <p className="font-semibold">🌐 Language</p>
-                            <p className="text-gray-600">AI writes in your selected language (TH, JP, KR, VN, EN)</p>
+                            <p className="text-gray-600">TH, JP, KR, VN, EN</p>
+                            <p className="text-gray-600">All content in selected language</p>
                         </div>
                         <div className="bg-gray-50 p-3 rounded-lg">
-                            <p className="font-semibold">🎯 Primary Keyword</p>
-                            <p className="text-gray-600">Affects comparison columns and rating categories</p>
+                            <p className="font-semibold">📝 Shortcodes</p>
+                            <p className="text-gray-600">WordPress shortcodes for tables, columns, FAQs</p>
                         </div>
                     </div>
                 </div>
             )
         },
         {
-            title: "📝 Full Article vs Review Only",
+            title: "✅ Tips for Best Results",
             content: (
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-blue-50 p-4 rounded-lg">
-                            <p className="font-semibold text-blue-800 mb-2">📝 Full Article Mode</p>
-                            <ul className="text-sm space-y-1 text-gray-700">
-                                <li>✅ Introduction paragraph</li>
-                                <li>✅ Platform quick list</li>
-                                <li>✅ Comparison table</li>
-                                <li>✅ Individual reviews</li>
-                                <li>✅ FAQs section</li>
-                                <li>✅ SEO metadata</li>
-                            </ul>
-                            <p className="text-xs text-blue-600 mt-2">Best for: New comparison articles</p>
-                        </div>
-                        <div className="bg-orange-50 p-4 rounded-lg">
-                            <p className="font-semibold text-orange-800 mb-2">🔄 Review Only Mode</p>
-                            <ul className="text-sm space-y-1 text-gray-700">
-                                <li>✅ Individual reviews only</li>
-                                <li>❌ No introduction</li>
-                                <li>❌ No comparison table</li>
-                                <li>❌ No FAQs</li>
-                            </ul>
-                            <p className="text-xs text-orange-600 mt-2">Best for: Adding reviews to existing articles</p>
-                        </div>
+                <div className="space-y-3">
+                    <ul className="space-y-3 text-sm">
+                        <li className="flex items-start gap-2">
+                            <span className="text-green-500">✓</span>
+                            <span><strong>Use Perplexity Sonar</strong> for research — gives real URLs for citations</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <span className="text-green-500">✓</span>
+                            <span><strong>5-7 platforms</strong> is optimal for Full Comparison mode</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <span className="text-green-500">✓</span>
+                            <span><strong>Set primary keyword</strong> — affects comparison columns and content focus</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <span className="text-green-500">✓</span>
+                            <span><strong>6+ sections</strong> in Full Comparison? Use SERP analysis to discover competitor sections</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <span className="text-green-500">✓</span>
+                            <span><strong>Always review</strong> generated content before publishing</span>
+                        </li>
+                    </ul>
+                    <div className="bg-purple-50 p-3 rounded-lg mt-4">
+                        <p className="text-sm text-purple-800">🎉 <strong>You're ready!</strong> Close this guide and start creating.</p>
                     </div>
                 </div>
             )
@@ -410,6 +484,7 @@ const App: React.FC = () => {
             writingModel: WritingModel.GPT_5_2,
             researchModel: ResearchModel.PERPLEXITY_SONAR,
             toneOfVoice: ToneOfVoice.PROFESSIONAL,
+            articleMode: ArticleMode.FULL_COMPARISON,
         };
     });
 
@@ -434,6 +509,9 @@ const App: React.FC = () => {
     
     // Generated article state
     const [generatedArticle, setGeneratedArticle] = useState<GeneratedArticle | null>(null);
+    
+    // Single platform article state (for SINGLE_PLATFORM_REVIEW mode)
+    const [singlePlatformArticle, setSinglePlatformArticle] = useState<SinglePlatformArticle | null>(null);
 
     // SERP Competitor Analysis state
     const [serpCompetitors, setSerpCompetitors] = useState<SerpCompetitor[]>([]);
@@ -487,6 +565,7 @@ const App: React.FC = () => {
             writingModel: WritingModel.GPT_5_2,
             researchModel: ResearchModel.PERPLEXITY_SONAR,
             toneOfVoice: ToneOfVoice.PROFESSIONAL,
+            articleMode: ArticleMode.FULL_COMPARISON,
         };
         setConfig(defaultConfig);
         localStorage.removeItem(CONFIG_STORAGE_KEY);
@@ -517,11 +596,16 @@ const App: React.FC = () => {
         setWorkflowPhase('idle');
         setPlatformResearch([]);
         setGeneratedArticle(null);
+        setSinglePlatformArticle(null);
         setError(null);
         setLoadingMessage('');
     };
 
     // Phase 1: Research platforms only (two-phase workflow)
+    // Behavior depends on articleMode:
+    // - FULL_COMPARISON: Research + cache reviews, then user assembles
+    // - SINGLE_PLATFORM_REVIEW: Research + generate complete single platform article
+    // - REVIEW_SNIPPET: Research + cache reviews (same as FULL_COMPARISON but for fewer platforms)
     const handleStartResearch = useCallback(async () => {
         if (!config.verticalConfirmed) {
             setError('Please select a Content Vertical (Gambling or Crypto) before starting research.');
@@ -531,12 +615,52 @@ const App: React.FC = () => {
             setError('Please add at least one platform to review.');
             return;
         }
+        
+        // Validate platform count based on mode
+        const articleMode = config.articleMode || ArticleMode.FULL_COMPARISON;
+        if (articleMode === ArticleMode.SINGLE_PLATFORM_REVIEW && config.platforms.length !== 1) {
+            setError('Single Platform Review mode requires exactly 1 platform. Please add only one platform.');
+            return;
+        }
+        if (articleMode === ArticleMode.FULL_COMPARISON && config.platforms.length < 3) {
+            setError('Full Comparison mode requires at least 3 platforms. Add more platforms or switch to Review Snippet mode.');
+            return;
+        }
 
         resetState();
         setWorkflowPhase('researching');
         setAppMode('research');
 
         try {
+            // SINGLE_PLATFORM_REVIEW mode: Generate complete article in one go
+            if (articleMode === ArticleMode.SINGLE_PLATFORM_REVIEW) {
+                setLoadingMessage(`Generating comprehensive review for ${config.platforms[0].name}...`);
+                
+                const singleArticle = await generateSinglePlatformArticle(
+                    config,
+                    (phase, detail) => {
+                        if (phase === 'researching') setWorkflowPhase('researching');
+                        else if (phase === 'generating-intro') setWorkflowPhase('generating-intro');
+                        else if (phase === 'generating-reviews') setWorkflowPhase('generating-reviews');
+                        else if (phase === 'generating-additional') setWorkflowPhase('generating-additional');
+                        else if (phase === 'generating-faqs') setWorkflowPhase('generating-faqs');
+                        else if (phase === 'generating-seo') setWorkflowPhase('generating-seo');
+                        
+                        if (detail) setLoadingMessage(detail);
+                    }
+                );
+                
+                if (singleArticle) {
+                    setSinglePlatformArticle(singleArticle);
+                    setWorkflowPhase('completed');
+                } else {
+                    setError('Failed to generate single platform article.');
+                    setWorkflowPhase('error');
+                }
+                return;
+            }
+            
+            // FULL_COMPARISON and REVIEW_SNIPPET modes: Research + cache reviews
             // Initialize platform research state
             const initialResearch: PlatformResearch[] = config.platforms.map(p => ({
                 name: p.name,
@@ -580,22 +704,19 @@ const App: React.FC = () => {
             setPlatformResearch(researchResults);
             
             // Generate reviews for each platform (saves to cache)
-            // Keep showing "researching" phase to user - reviews are part of research
-            // Don't change workflowPhase - stay in 'researching'
             setLoadingMessage('Processing research data...');
             
-            // Helper to add delay between Gemini API calls to avoid 503 overload
+            // Helper to add delay between API calls to avoid overload
             const delayMs = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-            const GEMINI_DELAY_MS = 5000; // 5 seconds between Gemini calls
+            const DELAY_MS = 5000;
             
             for (let i = 0; i < researchResults.length; i++) {
                 const research = researchResults[i];
                 const platformInput = config.platforms.find(p => p.name === research.name);
                 
-                // Add delay before each Gemini call (except first) to prevent 503 overload
                 if (i > 0) {
                     setLoadingMessage(`Waiting before processing ${research.name}... (${i + 1}/${researchResults.length})`);
-                    await delayMs(GEMINI_DELAY_MS);
+                    await delayMs(DELAY_MS);
                 }
                 
                 setLoadingMessage(`Writing review: ${research.name} (${i + 1}/${researchResults.length})`);
@@ -610,7 +731,7 @@ const App: React.FC = () => {
                 saveReviewToCache(review, config.vertical || 'gambling');
             }
 
-            // Research complete - show success, don't generate full article
+            // Research complete
             setWorkflowPhase('idle');
             setLoadingMessage('');
             
@@ -1179,8 +1300,8 @@ Image Alt Text: ${seo.imageAltText}
                         onAnalyzeSerpCompetitors={handleAnalyzeSerpCompetitors}
                     />
 
-                    {/* Two-Phase Workflow Panel */}
-                    {workflowPhase === 'idle' && (
+                    {/* Two-Phase Workflow Panel - Only show for Full Comparison mode */}
+                    {workflowPhase === 'idle' && config.articleMode === ArticleMode.FULL_COMPARISON && (
                         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl shadow-lg p-6">
                             <h3 className="text-xl font-bold text-indigo-900 mb-4 flex items-center">
                                 <span className="mr-2">📊</span> Article Generation Workflow
@@ -1275,6 +1396,40 @@ Image Alt Text: ${seo.imageAltText}
                         </div>
                     )}
 
+                    {/* Single Platform Review Workflow Panel */}
+                    {workflowPhase === 'idle' && config.articleMode === ArticleMode.SINGLE_PLATFORM_REVIEW && (
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl shadow-lg p-6">
+                            <h3 className="text-xl font-bold text-purple-900 mb-4 flex items-center">
+                                <span className="mr-2">📝</span> Single Platform Review Workflow
+                            </h3>
+                            <div className="bg-white rounded-lg p-4 border border-purple-200">
+                                <p className="text-sm text-purple-700 mb-2">
+                                    <strong>One-click generation:</strong> Add exactly 1 platform above, then click "Research Platforms".
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    The system will research the platform and automatically generate a comprehensive standalone review with intro, detailed sections, ratings, pros/cons, verdict, and platform-specific FAQs.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Review Snippet Workflow Panel */}
+                    {workflowPhase === 'idle' && config.articleMode === ArticleMode.REVIEW_SNIPPET && (
+                        <div className="bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 rounded-xl shadow-lg p-6">
+                            <h3 className="text-xl font-bold text-orange-900 mb-4 flex items-center">
+                                <span className="mr-2">✂️</span> Review Snippet Workflow
+                            </h3>
+                            <div className="bg-white rounded-lg p-4 border border-orange-200">
+                                <p className="text-sm text-orange-700 mb-2">
+                                    <strong>Quick review blocks:</strong> Add 1-5 platforms above, then click "Research Platforms".
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    Generates just the review block (infosheet, ratings, pros/cons, verdict) for each platform. No intro or FAQs. Perfect for updating existing comparison articles.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Research Evidence Panel - Shows raw research data and citations for verification */}
                     {platformResearch.length > 0 && workflowPhase === 'idle' && (
                         <ResearchEvidencePanel 
@@ -1341,8 +1496,18 @@ Image Alt Text: ${seo.imageAltText}
                         <Loader message={loadingMessage || `${workflowPhase}...`} />
                     )}
 
-                    {/* Generated Article Output */}
-                    {generatedArticle && workflowPhase === 'completed' && (
+                    {/* Single Platform Review Output */}
+                    {singlePlatformArticle && workflowPhase === 'completed' && (
+                        <SinglePlatformReviewOutput
+                            article={singlePlatformArticle}
+                            language={config.language}
+                            useShortcodes={config.useShortcodes !== false}
+                            onCopyHtml={() => alert('Copied to clipboard!')}
+                        />
+                    )}
+
+                    {/* Generated Article Output (Full Comparison) */}
+                    {generatedArticle && workflowPhase === 'completed' && !singlePlatformArticle && (
                         <div className="space-y-6">
                             {/* Action Buttons */}
                             <div className="flex flex-wrap justify-end gap-3">

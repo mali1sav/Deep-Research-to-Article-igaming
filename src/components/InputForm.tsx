@@ -10,7 +10,8 @@ import {
     ToneOfVoice,
     InternalLink,
     TargetKeyword,
-    VerticalType
+    VerticalType,
+    ArticleMode
 } from '../types';
 import { getVerticalConfig, getVerticalOptions } from '../config/verticals';
 import { generateResponsibleGamblingDisclaimer, isPlatformCached, getCacheInfo, isReviewCached, deletePlatformFromCache } from '../services/platformResearchService';
@@ -212,9 +213,45 @@ export const InputForm: React.FC<InputFormProps> = ({
         </label>
     );
 
-    const isReviewOnlyMode = config.reviewOnlyMode || false;
+    const articleMode = config.articleMode || ArticleMode.FULL_COMPARISON;
     const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
     const verticalOptions = getVerticalOptions();
+    
+    // Mode configuration for clear UX
+    const modeOptions = [
+        {
+            value: ArticleMode.FULL_COMPARISON,
+            icon: '📊',
+            label: 'Full Comparison',
+            shortDesc: 'Compare multiple platforms',
+            fullDesc: 'Complete article with intro, comparison table, individual reviews, and FAQs. Best for "Best X platforms" articles.',
+            color: 'blue',
+            minPlatforms: 3,
+            maxPlatforms: 10,
+        },
+        {
+            value: ArticleMode.SINGLE_PLATFORM_REVIEW,
+            icon: '📝',
+            label: 'Single Platform Review',
+            shortDesc: 'Comprehensive standalone review',
+            fullDesc: 'Full dedicated review page for ONE platform with intro, deep-dive sections, FAQs. Best for "Platform X Review" articles.',
+            color: 'purple',
+            minPlatforms: 1,
+            maxPlatforms: 1,
+        },
+        {
+            value: ArticleMode.REVIEW_SNIPPET,
+            icon: '✂️',
+            label: 'Review Snippet',
+            shortDesc: 'Add to existing article',
+            fullDesc: 'Just the review block (infosheet, ratings, pros/cons, verdict). No intro or FAQs. Best for updating existing comparison articles.',
+            color: 'orange',
+            minPlatforms: 1,
+            maxPlatforms: 5,
+        },
+    ];
+    
+    const currentModeConfig = modeOptions.find(m => m.value === articleMode) || modeOptions[0];
 
     return (
         <div className="space-y-6">
@@ -254,65 +291,94 @@ export const InputForm: React.FC<InputFormProps> = ({
                 )}
             </div>
 
-            {/* Top Bar: Mode Toggle + Clear All */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-4">
-                    <label className="flex items-center cursor-pointer">
-                        <div className="relative">
-                            <input
-                                type="checkbox"
-                                className="sr-only"
-                                checked={isReviewOnlyMode}
-                                onChange={(e) => setConfig({ ...config, reviewOnlyMode: e.target.checked })}
-                            />
-                            <div className={`block w-14 h-8 rounded-full transition ${isReviewOnlyMode ? 'bg-orange-500' : 'bg-gray-300'}`}></div>
-                            <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform shadow-sm ${isReviewOnlyMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                        </div>
-                        <span className={`ml-3 font-semibold ${isReviewOnlyMode ? 'text-orange-700' : 'text-gray-600'}`}>
-                            {isReviewOnlyMode ? '🔄 Review Only Mode' : '📝 Full Article Mode'}
-                        </span>
-                    </label>
-                </div>
-                <div className="flex gap-2">
-                    {onClearResearchCache && (
+            {/* Article Mode Selector - Clear 3-option design */}
+            <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-lg">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <span className="mr-2">🎯</span> What do you want to create?
+                    </h2>
+                    <div className="flex gap-2">
+                        {onClearResearchCache && (
+                            <button
+                                type="button"
+                                onClick={onClearResearchCache}
+                                className="px-3 py-2 text-sm text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-md transition font-medium"
+                                title="Clear saved research data"
+                            >
+                                🔄 Clear Cache
+                            </button>
+                        )}
                         <button
                             type="button"
-                            onClick={onClearResearchCache}
-                            className="px-3 py-2 text-sm text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-md transition font-medium"
-                            title="Clear saved research data (forces fresh API calls)"
+                            onClick={onClearAll}
+                            className="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition font-medium"
                         >
-                            🔄 Clear Research
+                            🗑️ Clear All
                         </button>
+                    </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {modeOptions.map((mode) => {
+                        const isSelected = articleMode === mode.value;
+                        const colorClasses = {
+                            blue: isSelected ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-200' : 'bg-white border-gray-200 hover:border-blue-300',
+                            purple: isSelected ? 'bg-purple-50 border-purple-500 ring-2 ring-purple-200' : 'bg-white border-gray-200 hover:border-purple-300',
+                            orange: isSelected ? 'bg-orange-50 border-orange-500 ring-2 ring-orange-200' : 'bg-white border-gray-200 hover:border-orange-300',
+                        };
+                        const textColorClasses = {
+                            blue: isSelected ? 'text-blue-700' : 'text-gray-700',
+                            purple: isSelected ? 'text-purple-700' : 'text-gray-700',
+                            orange: isSelected ? 'text-orange-700' : 'text-gray-700',
+                        };
+                        
+                        return (
+                            <button
+                                key={mode.value}
+                                type="button"
+                                onClick={() => setConfig({ ...config, articleMode: mode.value })}
+                                className={`p-4 rounded-xl border-2 text-left transition-all ${colorClasses[mode.color as keyof typeof colorClasses]}`}
+                            >
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-2xl">{mode.icon}</span>
+                                    <span className={`font-semibold ${textColorClasses[mode.color as keyof typeof textColorClasses]}`}>
+                                        {mode.label}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-gray-600 mb-2">{mode.shortDesc}</p>
+                                <p className="text-xs text-gray-500">{mode.fullDesc}</p>
+                                <div className="mt-2 pt-2 border-t border-gray-100">
+                                    <span className="text-xs font-medium text-gray-400">
+                                        {mode.minPlatforms === mode.maxPlatforms 
+                                            ? `${mode.minPlatforms} platform` 
+                                            : `${mode.minPlatforms}-${mode.maxPlatforms} platforms`}
+                                    </span>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+                
+                {/* Mode-specific info banner */}
+                <div className={`mt-4 p-3 rounded-lg text-sm ${
+                    articleMode === ArticleMode.FULL_COMPARISON ? 'bg-blue-50 text-blue-800' :
+                    articleMode === ArticleMode.SINGLE_PLATFORM_REVIEW ? 'bg-purple-50 text-purple-800' :
+                    'bg-orange-50 text-orange-800'
+                }`}>
+                    {articleMode === ArticleMode.FULL_COMPARISON && (
+                        <p>📊 <strong>Full Comparison:</strong> Add 3+ platforms below. Output includes intro, quick list, comparison table, individual reviews, and FAQs.</p>
                     )}
-                    <button
-                        type="button"
-                        onClick={onClearAll}
-                        className="px-4 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition font-medium"
-                    >
-                        🗑️ Clear All
-                    </button>
+                    {articleMode === ArticleMode.SINGLE_PLATFORM_REVIEW && (
+                        <p>📝 <strong>Single Platform Review:</strong> Add exactly 1 platform below. Output is a comprehensive standalone review page with intro, detailed sections, and platform-specific FAQs.</p>
+                    )}
+                    {articleMode === ArticleMode.REVIEW_SNIPPET && (
+                        <p>✂️ <strong>Review Snippet:</strong> Add 1-5 platforms below. Output is just the review block (infosheet, ratings, pros/cons, verdict) — paste into existing articles.</p>
+                    )}
                 </div>
             </div>
 
-            {/* Review Only Mode Warning */}
-            {isReviewOnlyMode && (
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                        <span className="text-orange-500 text-xl">⚠️</span>
-                        <div>
-                            <h3 className="font-semibold text-orange-800 mb-1">Review Only Mode</h3>
-                            <p className="text-sm text-orange-700">
-                                This mode generates <strong>only platform reviews</strong>. Intro, List, Comparison Table, and FAQs will not be generated.
-                                <br />
-                                <span className="text-orange-600">You must manually update your List and Comparison Table sections in existing articles.</span>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Section 1: Article Structure and Settings - Hidden in Review Only Mode */}
-            {!isReviewOnlyMode && (
+            {/* Section 1: Article Structure and Settings - Hidden in Review Snippet Mode */}
+            {articleMode !== ArticleMode.REVIEW_SNIPPET && (
             <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-lg">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <span className="mr-2">📝</span> Article Structure and Settings
@@ -362,6 +428,8 @@ export const InputForm: React.FC<InputFormProps> = ({
                                 className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500" 
                             />
                         </div>
+                        {/* Sections dropdown - only for Full Comparison mode */}
+                        {articleMode === ArticleMode.FULL_COMPARISON && (
                         <div>
                             <label htmlFor="targetSectionCount" className="block text-xs font-medium text-gray-700 mb-1">Sections</label>
                             <select 
@@ -370,14 +438,15 @@ export const InputForm: React.FC<InputFormProps> = ({
                                 onChange={(e) => setConfig({ ...config, targetSectionCount: parseInt(e.target.value, 10) })}
                                 className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value={5}>5 (Intro, List, Comparison, Reviews, FAQs)</option>
-                                <option value={6}>6 (Run SERP for AI to add sections)</option>
-                                <option value={7}>7 (Run SERP for AI to add sections)</option>
-                                <option value={8}>8 (Run SERP for AI to add sections)</option>
-                                <option value={9}>9 (Run SERP for AI to add sections)</option>
-                                <option value={10}>10 (Run SERP for AI to add sections)</option>
+                                <option value={5}>5 (Standard structure)</option>
+                                <option value={6}>6+ (Analyze competitors)</option>
+                                <option value={7}>7+ (Analyze competitors)</option>
+                                <option value={8}>8+ (Analyze competitors)</option>
+                                <option value={9}>9+ (Analyze competitors)</option>
+                                <option value={10}>10+ (Analyze competitors)</option>
                             </select>
                         </div>
+                        )}
                         <div>
                             <label htmlFor="writingModel" className="block text-xs font-medium text-gray-700 mb-1">Writing Model</label>
                             <select 
@@ -404,15 +473,102 @@ export const InputForm: React.FC<InputFormProps> = ({
                         </div>
                     </div>
 
+                    {/* Inline SERP Competitor Analysis - appears when 6+ sections selected */}
+                    {articleMode === ArticleMode.FULL_COMPARISON && (config.targetSectionCount || 5) >= 6 && (
+                        <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                            <div className="flex items-start gap-3">
+                                <span className="text-xl">🔍</span>
+                                <div className="flex-1">
+                                    <h4 className="text-sm font-semibold text-purple-900 mb-1">
+                                        Competitor Analysis (Recommended)
+                                    </h4>
+                                    <p className="text-xs text-purple-700 mb-3">
+                                        You selected {config.targetSectionCount} sections. Analyze top competitors to discover what additional sections they cover.
+                                    </p>
+                                    
+                                    <div className="flex gap-2 mb-3">
+                                        <input
+                                            type="text"
+                                            placeholder="Enter keyword to analyze (e.g., best online casinos 2025)"
+                                            value={serpKeywordInput || config.targetKeywords?.find(k => k.isPrimary)?.keyword || ''}
+                                            onChange={(e) => setSerpKeywordInput(e.target.value)}
+                                            className="flex-1 bg-white border border-purple-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-purple-500"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const keyword = serpKeywordInput || config.targetKeywords?.find(k => k.isPrimary)?.keyword || '';
+                                                if (keyword.trim()) {
+                                                    onAnalyzeSerpCompetitors?.(keyword, 3);
+                                                }
+                                            }}
+                                            disabled={serpAnalysisLoading || !(serpKeywordInput || config.targetKeywords?.find(k => k.isPrimary)?.keyword)}
+                                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {serpAnalysisLoading ? 'Analyzing...' : 'Analyze Top 3'}
+                                        </button>
+                                    </div>
+
+                                    {serpAnalysisLoading && (
+                                        <div className="flex items-center gap-2 text-purple-600">
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                                            <span className="text-xs">Analyzing competitors...</span>
+                                        </div>
+                                    )}
+
+                                    {serpCompetitors.length > 0 && !serpAnalysisLoading && (
+                                        <div className="bg-white border border-purple-200 rounded-lg overflow-hidden">
+                                            <div className="p-2 bg-purple-100 text-xs font-medium text-purple-800">
+                                                ✓ {serpCompetitors.length} competitors analyzed - AI will use their section structure
+                                            </div>
+                                            <div className="max-h-48 overflow-y-auto">
+                                                {serpCompetitors.map((c) => (
+                                                    <div key={c.rank} className="p-2 border-b border-purple-100 last:border-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-xs font-medium text-gray-500">#{c.rank}</span>
+                                                            <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline truncate">
+                                                                {c.domain}
+                                                            </a>
+                                                        </div>
+                                                        <p className="text-xs text-gray-700 font-medium mb-1">{c.title}</p>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {c.headings.slice(0, 5).map((h, j) => (
+                                                                <span key={j} className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                                                    {h}
+                                                                </span>
+                                                            ))}
+                                                            {c.headings.length > 5 && (
+                                                                <span className="text-xs text-gray-400">+{c.headings.length - 5} more</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {serpCompetitors.length === 0 && !serpAnalysisLoading && (
+                                        <p className="text-xs text-purple-600 italic">
+                                            Optional: Skip if you want AI to use default section structure.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Article Structure Toggles */}
                     <div className="pt-4 border-t border-gray-200">
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Include in article:</h3>
                         <div className="flex flex-wrap gap-x-6 gap-y-3">
+                            {/* Comparison Table - only for Full Comparison mode */}
+                            {articleMode === ArticleMode.FULL_COMPARISON && (
                             <Toggle 
                                 checked={config.includeSections.comparisonTable} 
                                 onChange={(v) => updateIncludeSection('comparisonTable', v)} 
                                 label="Comparison Table" 
                             />
+                            )}
                             <Toggle 
                                 checked={config.includeSections.faqs} 
                                 onChange={(v) => updateIncludeSection('faqs', v)} 
@@ -478,14 +634,14 @@ export const InputForm: React.FC<InputFormProps> = ({
             )}
 
             {/* Section 2: Writing & SEO Settings */}
-            <div className={`bg-white border p-6 rounded-xl shadow-lg ${isReviewOnlyMode ? 'border-orange-300 ring-2 ring-orange-100' : 'border-gray-200'}`}>
+            <div className={`bg-white border p-6 rounded-xl shadow-lg ${articleMode === ArticleMode.REVIEW_SNIPPET ? 'border-orange-300 ring-2 ring-orange-100' : 'border-gray-200'}`}>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <span className="mr-2">✍️</span> Writing & SEO Settings
-                    {isReviewOnlyMode && <span className="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">Required for Review Only</span>}
+                    {articleMode === ArticleMode.REVIEW_SNIPPET && <span className="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">Required for Snippet</span>}
                 </h2>
 
-                {/* Language & Writing Model - shown only in Review Only mode */}
-                {isReviewOnlyMode && (
+                {/* Language & Writing Model - shown only in Review Snippet mode */}
+                {articleMode === ArticleMode.REVIEW_SNIPPET && (
                     <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-gray-200">
                         <div>
                             <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-1">Language</label>
@@ -663,10 +819,10 @@ export const InputForm: React.FC<InputFormProps> = ({
             </div>
 
             {/* Section 5: Platforms to Review (with Review Settings) */}
-            <div className={`bg-white border p-6 rounded-xl shadow-lg ${isReviewOnlyMode ? 'border-orange-300 ring-2 ring-orange-100' : 'border-gray-200'}`}>
+            <div className={`bg-white border p-6 rounded-xl shadow-lg ${articleMode === ArticleMode.REVIEW_SNIPPET ? 'border-orange-300 ring-2 ring-orange-100' : 'border-gray-200'}`}>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <span className="mr-2">🎰</span> Platforms to Review
-                    {isReviewOnlyMode && <span className="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">Required for Review Only</span>}
+                    {articleMode === ArticleMode.REVIEW_SNIPPET && <span className="ml-2 text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">Required for Snippet</span>}
                 </h2>
 
                 <div className="space-y-4">
@@ -751,12 +907,22 @@ export const InputForm: React.FC<InputFormProps> = ({
                     )}
 
                     {config.platforms.length === 0 && (
-                        <p className="text-sm text-gray-500 italic">No platforms added yet. Recommended: 5-7 platforms for best results.</p>
+                        <p className="text-sm text-gray-500 italic">
+                            {articleMode === ArticleMode.SINGLE_PLATFORM_REVIEW 
+                                ? 'No platform added yet. Add exactly 1 platform for a comprehensive standalone review.'
+                                : articleMode === ArticleMode.REVIEW_SNIPPET
+                                    ? 'No platforms added yet. Add 1-5 platforms for review snippets.'
+                                    : 'No platforms added yet. Recommended: 5-7 platforms for best comparison results.'
+                            }
+                        </p>
                     )}
 
+                    {/* Platform count recommendation - only for Full Comparison mode */}
+                    {articleMode === ArticleMode.FULL_COMPARISON && (
                     <p className="text-xs text-blue-600 flex items-center">
                         💡 Recommended: <strong className="mx-1">5-7 platforms</strong> for useful comparison tables. Fewer = weak comparison. More = slower processing.
                     </p>
+                    )}
 
                     {/* Cache Summary */}
                     {(() => {
@@ -850,6 +1016,15 @@ export const InputForm: React.FC<InputFormProps> = ({
 
                             <div>
                                 <h4 className="text-xs font-medium text-gray-600 mb-2">Include in each review:</h4>
+                                {articleMode === ArticleMode.SINGLE_PLATFORM_REVIEW ? (
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">✓ Infosheet</span>
+                                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">✓ Ratings (1-10)</span>
+                                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">✓ Pros/Cons</span>
+                                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">✓ Verdict</span>
+                                        <p className="w-full text-xs text-gray-500 mt-1">All elements included by default for comprehensive single platform review.</p>
+                                    </div>
+                                ) : (
                                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                                     <Toggle 
                                         checked={config.includeSections.platformInfosheet} 
@@ -872,6 +1047,7 @@ export const InputForm: React.FC<InputFormProps> = ({
                                         label="Verdict" 
                                     />
                                 </div>
+                                )}
                             </div>
 
                             <div className="pt-3 border-t border-gray-100">
@@ -895,138 +1071,46 @@ export const InputForm: React.FC<InputFormProps> = ({
                 </div>
             </div>
 
-            {/* SERP Competitor Analysis Section - Hidden in Review Only mode */}
-            {!isReviewOnlyMode && (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                <button
-                    type="button"
-                    onClick={() => setSerpExpanded(!serpExpanded)}
-                    className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
-                >
-                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                        <span className="mr-2">🔍</span> SERP Competitor Analysis
-                        {serpCompetitors.length > 0 && (
-                            <span className="ml-2 text-sm font-normal text-gray-500">
-                                ({serpCompetitors.length} competitors analyzed)
-                            </span>
-                        )}
-                    </h2>
-                    <ChevronDownIcon />
-                </button>
-                
-                {serpExpanded && (
-                    <div className="p-4 pt-0 border-t border-gray-200">
-                        <p className="text-sm text-gray-600 mb-3">
-                            Analyze top 3 ranking competitors to learn from their content structure.
-                        </p>
-                        
-                        <div className="flex gap-3 mb-4">
-                            <input
-                                type="text"
-                                placeholder="Enter keyword to analyze"
-                                value={serpKeywordInput || config.targetKeywords?.find(k => k.isPrimary)?.keyword || ''}
-                                onChange={(e) => setSerpKeywordInput(e.target.value)}
-                                className="flex-1 bg-white border border-gray-300 rounded-md p-2.5 text-gray-800 focus:ring-2 focus:ring-blue-500"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const keyword = serpKeywordInput || config.targetKeywords?.find(k => k.isPrimary)?.keyword || '';
-                                    if (keyword.trim()) {
-                                        onAnalyzeSerpCompetitors?.(keyword, 3);
-                                    }
-                                }}
-                                disabled={serpAnalysisLoading || !(serpKeywordInput || config.targetKeywords?.find(k => k.isPrimary)?.keyword)}
-                                className="px-4 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-md font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {serpAnalysisLoading ? 'Analyzing...' : 'Analyze Top 3'}
-                            </button>
-                        </div>
-
-                        {/* Competitor Results Table */}
-                        {serpCompetitors.length > 0 && (
-                            <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="bg-gray-100">
-                                            {serpCompetitors.map((c) => (
-                                                <th key={c.rank} className="border-r border-gray-200 p-3 text-left font-semibold min-w-[200px]">
-                                                    <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                                        {c.domain}
-                                                    </a>
-                                                    <span className="ml-1 text-gray-400 font-normal">(#{c.rank})</span>
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr className="border-t border-gray-200">
-                                            {serpCompetitors.map((c) => (
-                                                <td key={c.rank} className="border-r border-gray-200 p-3 align-top font-medium text-gray-900">
-                                                    {c.title}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        <tr className="border-t border-gray-200 bg-gray-50">
-                                            {serpCompetitors.map((c) => (
-                                                <td key={c.rank} className="border-r border-gray-200 p-3 align-top text-gray-500 text-xs">
-                                                    {c.metaDesc}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                        <tr className="border-t border-gray-200">
-                                            {serpCompetitors.map((c) => (
-                                                <td key={c.rank} className="border-r border-gray-200 p-3 align-top">
-                                                    <p className="text-xs text-gray-500 mb-1 font-medium">H2 Sections:</p>
-                                                    <ul className="space-y-0.5">
-                                                        {c.headings.map((h, j) => (
-                                                            <li key={j} className="text-xs text-gray-700">• {h}</li>
-                                                        ))}
-                                                    </ul>
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-
-                        {serpCompetitors.length === 0 && !serpAnalysisLoading && (
-                            <p className="text-sm text-gray-400 italic">
-                                
-                            </p>
-                        )}
-
-                        {serpAnalysisLoading && (
-                            <div className="flex items-center justify-center p-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                                <span className="ml-3 text-gray-600">Analyzing competitors...</span>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-            )}
-
             {/* Submit Button */}
             <div className="text-center">
-                <button 
-                    onClick={onSubmit} 
-                    disabled={isLoading || config.platforms.length === 0}
-                    className={`inline-flex items-center justify-center px-8 py-3 font-bold rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 ${
-                        isReviewOnlyMode 
-                            ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white'
-                            : 'bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white'
-                    }`}
-                >
-                    <SearchIcon />
-                    <span className="ml-2">
-                        {isLoading 
-                            ? 'Researching...' 
-                            : '🔍 Research Platforms'
+                {(() => {
+                    // Check if all platforms are cached
+                    const allCached = config.platforms.length > 0 && config.platforms.every(p => 
+                        isPlatformCached(p.name, config.vertical || 'gambling')
+                    );
+                    
+                    // Determine button text based on mode and cache state
+                    const getButtonText = () => {
+                        if (isLoading) return 'Processing...';
+                        
+                        if (articleMode === ArticleMode.SINGLE_PLATFORM_REVIEW && allCached) {
+                            return '✨ Generate Review Article';
                         }
-                    </span>
-                </button>
+                        if (articleMode === ArticleMode.REVIEW_SNIPPET && allCached) {
+                            return '✨ Generate Review Snippets';
+                        }
+                        return '🔍 Research Platforms';
+                    };
+                    
+                    return (
+                        <button 
+                            onClick={onSubmit} 
+                            disabled={isLoading || config.platforms.length === 0}
+                            className={`inline-flex items-center justify-center px-8 py-3 font-bold rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 ${
+                                articleMode === ArticleMode.REVIEW_SNIPPET 
+                                    ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white'
+                                    : articleMode === ArticleMode.SINGLE_PLATFORM_REVIEW
+                                    ? 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white'
+                                    : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white'
+                            }`}
+                        >
+                            {!allCached && <SearchIcon />}
+                            <span className={!allCached ? "ml-2" : ""}>
+                                {getButtonText()}
+                            </span>
+                        </button>
+                    );
+                })()}
                 {config.platforms.length === 0 && (
                     <p className="mt-2 text-sm text-red-500">Please add at least one platform to review.</p>
                 )}

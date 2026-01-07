@@ -39,6 +39,13 @@ export enum ToneOfVoice {
     CUSTOM = 'custom',
 }
 
+// Article generation mode - determines output structure
+export enum ArticleMode {
+    FULL_COMPARISON = 'full-comparison',      // Multiple platforms compared (intro, table, reviews, FAQs)
+    SINGLE_PLATFORM_REVIEW = 'single-review', // One platform, comprehensive standalone article
+    REVIEW_SNIPPET = 'review-snippet',        // One platform, just the review block (no intro/FAQs)
+}
+
 export interface ManualSeoSettings {
     keywords: { keyword: string; count: number }[];
 }
@@ -174,8 +181,8 @@ export interface ArticleConfig {
     responsibleGamblingDisclaimerText?: string;  // Custom or AI-generated disclaimer
     // SERP competitor analysis
     serpKeyword?: string;  // Keyword to analyze competitors for
-    // Review Only mode - generates only platform reviews without intro, comparison, FAQs
-    reviewOnlyMode?: boolean;
+    // Article mode - determines what gets generated
+    articleMode: ArticleMode;
     // Output format options
     useShortcodes?: boolean;  // Use WordPress Ultimate Shortcode format (default: true)
 }
@@ -228,6 +235,26 @@ export interface GeneratedArticle {
     faqs: FAQ[];
     allCitations: Citation[];
     seoMetadata?: SeoMetadata;              // SEO metadata for the article
+}
+
+// Single platform comprehensive review article
+export interface SinglePlatformArticle {
+    platformName: string;
+    intro: string;                          // Platform-specific intro (HTML)
+    infosheet: PlatformInfosheet;
+    ratings: RatingCategory[];
+    // Deep-dive sections (dynamic based on vertical)
+    sections: {
+        title: string;
+        content: string;                    // HTML content
+    }[];
+    pros: string[];
+    cons: string[];
+    verdict: string;                        // HTML content
+    faqs: FAQ[];                           // Platform-specific FAQs
+    allCitations: Citation[];
+    seoMetadata?: SeoMetadata;
+    affiliateUrl?: string;
 }
 
 // --- Workflow State ---

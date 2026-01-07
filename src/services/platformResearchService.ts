@@ -7,6 +7,7 @@ import {
     ComparisonTableRow,
     FAQ,
     GeneratedArticle,
+    SinglePlatformArticle,
     Language,
     RatingCategory,
     WritingModel,
@@ -298,17 +299,23 @@ const getLanguageInstruction = (
 
 const buildCitationsIndexBlock = (citations: Citation[]): string => {
     if (!citations || citations.length === 0) return 'No citations provided.';
-    // Use Google Search URLs since AI-generated sourceUrls are often hallucinated/404
+    // Use real source URLs when available (Perplexity Sonar), fallback to Google Search
     return citations
-        .map((c, i) => `${i + 1}. ${c.domain} - ${c.googleSearchUrl}`)
+        .map((c, i) => {
+            const hasRealUrl = c.sourceUrl && 
+                               !c.sourceUrl.includes('google.com/search') &&
+                               c.sourceUrl.startsWith('http');
+            const url = hasRealUrl ? c.sourceUrl : c.googleSearchUrl;
+            return `${i + 1}. ${c.domain} - ${url}`;
+        })
         .join('\n');
 };
 
 const IN_TEXT_CITATION_RULES_HTML = `
 **CRITICAL - Citation Rules (MUST FOLLOW):**
-- Use ONLY the Google Search URLs from the "Citations Index" below - these are guaranteed to work
-- Add citations INSIDE paragraphs using format: <a href="GOOGLE_SEARCH_URL_FROM_INDEX" target="_blank" rel="noopener noreferrer">(domain.com)</a>
-- Example: Licensed by Curacao eGaming <a href="https://www.google.com/search?q=curacaoegaming.lc" target="_blank" rel="noopener noreferrer">(curacaoegaming.lc)</a>
+- Use ONLY the URLs from the "Citations Index" below - these are verified real sources
+- Add citations INSIDE paragraphs using format: <a href="URL_FROM_INDEX" target="_blank" rel="noopener noreferrer">(domain.com)</a>
+- Example: Licensed by Curacao eGaming <a href="https://curacaoegaming.lc/about" target="_blank" rel="noopener noreferrer">(curacaoegaming.lc)</a>
 - Each source should appear ONLY ONCE in the entire article
 - Only cite credibility-important info (licenses, company details, bonuses)
 - NEVER fabricate or modify URLs - use EXACTLY the URLs from the Citations Index
@@ -413,14 +420,15 @@ const ensureInTextCitations = (html: string, citations: Citation[], minCount: nu
 };
 
 const buildFallbackProsFromInfosheet = (research: PlatformResearch, language: Language): string[] => {
-    const infosheet = research.infosheet;
+    const infosheet = research.infosheet as unknown as Record<string, unknown>;
     const pros: string[] = [];
 
-    const hasValue = (v: string | undefined) => {
-        const s = String(v || '').trim();
+    const hasValue = (v: unknown) => {
+        if (!v) return false;
+        const s = String(v).trim();
         if (!s) return false;
         const lower = s.toLowerCase();
-        return lower !== 'unknown' && lower !== 'not publicly disclosed' && lower !== 'research failed';
+        return lower !== 'unknown' && lower !== 'not publicly disclosed' && lower !== 'research failed' && lower !== 'n/a';
     };
 
     const t = (english: string, thai: string, vi: string, ja: string, ko: string) => {
@@ -431,6 +439,7 @@ const buildFallbackProsFromInfosheet = (research: PlatformResearch, language: La
         return english;
     };
 
+    // Platform/Exchange specific
     if (hasValue(infosheet.license)) {
         pros.push(t(
             `Licensed by ${infosheet.license}.`,
@@ -451,16 +460,6 @@ const buildFallbackProsFromInfosheet = (research: PlatformResearch, language: La
         ));
     }
 
-    if (Array.isArray(infosheet.supportedCurrencies) && infosheet.supportedCurrencies.length > 0) {
-        pros.push(t(
-            `Supports several currencies (e.g., ${infosheet.supportedCurrencies.slice(0, 3).join(', ')}).`,
-            `รองรับหลายสกุลเงิน (เช่น ${infosheet.supportedCurrencies.slice(0, 3).join(', ')}).`,
-            `Hỗ trợ nhiều loại tiền tệ (ví dụ: ${infosheet.supportedCurrencies.slice(0, 3).join(', ')}).`,
-            `複数通貨に対応（例：${infosheet.supportedCurrencies.slice(0, 3).join(', ')}）。`,
-            `여러 통화를 지원합니다(예: ${infosheet.supportedCurrencies.slice(0, 3).join(', ')}).`
-        ));
-    }
-
     if (hasValue(infosheet.payoutSpeed)) {
         pros.push(t(
             `Clear payout timeframe: ${infosheet.payoutSpeed}.`,
@@ -468,6 +467,47 @@ const buildFallbackProsFromInfosheet = (research: PlatformResearch, language: La
             `Thời gian rút tiền rõ ràng: ${infosheet.payoutSpeed}.`,
             `出金目安が明確：${infosheet.payoutSpeed}。`,
             `출금 소요 시간이 비교적 명확합니다: ${infosheet.payoutSpeed}.`
+        ));
+    }
+
+    // Wallet specific
+    if (hasValue(infosheet.custody) && String(infosheet.custody).toLowerCase().includes('non-custodial')) {
+        pros.push(t(
+            `Non-custodial: You control your private keys.`,
+            `Non-custodial: คุณควบคุม private keys ของคุณเอง`,
+            `Non-custodial: Bạn kiểm soát private keys của mình.`,
+            `非カストディアル：秘密鍵は自分で管理。`,
+            `비수탁형: 개인 키를 직접 관리합니다.`
+        ));
+    }
+
+    if (hasValue(infosheet.openSource) && String(infosheet.openSource).toLowerCase().includes('open source')) {
+        pros.push(t(
+            `Open source code for transparency.`,
+            `โค้ดเปิดเผยเพื่อความโปร่งใส`,
+            `Mã nguồn mở để minh bạch.`,
+            `オープンソースで透明性が高い。`,
+            `투명성을 위한 오픈 소스 코드.`
+        ));
+    }
+
+    if (hasValue(infosheet.supportedChains)) {
+        pros.push(t(
+            `Supports ${infosheet.supportedChains}.`,
+            `รองรับ ${infosheet.supportedChains}`,
+            `Hỗ trợ ${infosheet.supportedChains}.`,
+            `${infosheet.supportedChains} に対応。`,
+            `${infosheet.supportedChains} 지원.`
+        ));
+    }
+
+    if (hasValue(infosheet.securityFeatures)) {
+        pros.push(t(
+            `Security features: ${infosheet.securityFeatures}.`,
+            `ฟีเจอร์ความปลอดภัย: ${infosheet.securityFeatures}`,
+            `Tính năng bảo mật: ${infosheet.securityFeatures}.`,
+            `セキュリティ機能：${infosheet.securityFeatures}。`,
+            `보안 기능: ${infosheet.securityFeatures}.`
         ));
     }
 
@@ -1107,14 +1147,21 @@ Rules:
 // Check if platform has valid research data
 const hasValidResearchData = (research: PlatformResearch): boolean => {
     const info = research.infosheet;
-    // Check if we have meaningful data (not just empty or placeholder values)
-    const hasLicense = info.license && info.license !== 'Unknown' && info.license !== 'N/A';
-    const hasDeposit = info.minDeposit && info.minDeposit !== 'Unknown' && info.minDeposit !== 'N/A';
-    const hasPayout = info.payoutSpeed && info.payoutSpeed !== 'Unknown' && info.payoutSpeed !== 'N/A';
     const hasCitations = research.citations && research.citations.length > 0;
     
-    // Platform has valid data if it has at least 2 of the key fields OR has citations
-    return (hasLicense && hasDeposit) || (hasLicense && hasPayout) || hasCitations;
+    // Count how many infosheet fields have meaningful values
+    const meaningfulValues = Object.values(info).filter(v => {
+        if (!v) return false;
+        if (typeof v === 'string') {
+            const lower = v.toLowerCase();
+            return lower !== 'unknown' && lower !== 'n/a' && lower !== 'not publicly disclosed' && lower !== 'research failed' && v.trim().length > 0;
+        }
+        if (Array.isArray(v)) return v.length > 0;
+        return true;
+    }).length;
+    
+    // Valid if has at least 3 meaningful infosheet values OR has citations
+    return meaningfulValues >= 3 || hasCitations;
 };
 
 // Get "no data" message - always in English for consistency across Asian markets
@@ -2188,5 +2235,265 @@ export const generateReviewsOnly = async (
     return {
         platformResearch,
         platformReviews
+    };
+};
+
+// ============================================
+// SINGLE PLATFORM COMPREHENSIVE REVIEW
+// ============================================
+
+/**
+ * Generate introduction for a single platform comprehensive review
+ */
+export const generateSinglePlatformIntro = async (
+    research: PlatformResearch,
+    config: ArticleConfig
+): Promise<string> => {
+    const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
+    const langInstruction = getLanguageInstruction(config.language, 'introduction');
+    const citationsIndex = buildCitationsIndexBlock(research.citations);
+    const toneInstruction = getToneInstruction(config);
+    const keywordsInstruction = getKeywordsInstruction(config);
+    const customInstructions = getCustomInstructions(config);
+
+    const prompt = `You are an expert ${verticalConfig.name.toLowerCase()} analyst writing a comprehensive introduction for a dedicated review of "${research.name}".
+
+${langInstruction}
+
+**Writing Style:** Write in an IMPARTIAL, INFORMATIVE tone. This is a deep-dive review page dedicated to this single platform. Help readers understand what ${research.name} is, who it's for, and why this review matters.
+${toneInstruction}
+${keywordsInstruction}
+${customInstructions}
+
+${IN_TEXT_CITATION_RULES_HTML}
+
+**Citations Index:**
+${citationsIndex}
+
+**Platform Research Data:**
+- Name: ${research.name}
+- Description: ${research.shortDescription}
+- Key Features: ${research.keyFeatures.join(', ')}
+- License: ${research.infosheet.license}
+- Established: ${research.infosheet.yearEstablished}
+
+**Article Narrative/Angle:** ${config.introNarrative || `Comprehensive review of ${research.name}`}
+
+**Requirements:**
+- Write approximately ${config.introWordCount} words
+- Introduce ${research.name} and explain what type of platform it is
+- Mention who the ideal user is for this platform
+- Preview what readers will learn in this review (features, pros/cons, verdict)
+- Include at least 2 in-text citations
+- Output should be HTML formatted (use <p> tags for paragraphs)
+- Return JSON: { "introduction": "<p>Your intro here...</p>" }`;
+
+    const response = await withRetry(() => callWritingModel(prompt, config.writingModel));
+    const parsed = parseJsonResponse<{ introduction: string }>(response);
+    return ensureInTextCitations(parsed.introduction, research.citations, 2);
+};
+
+/**
+ * Generate deep-dive sections for a single platform review
+ */
+export const generateSinglePlatformSections = async (
+    research: PlatformResearch,
+    config: ArticleConfig
+): Promise<{ title: string; content: string }[]> => {
+    const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
+    const langInstruction = getLanguageInstruction(config.language, 'review');
+    const citationsIndex = buildCitationsIndexBlock(research.citations);
+    const toneInstruction = getToneInstruction(config);
+    const keywordsInstruction = getKeywordsInstruction(config);
+    const customInstructions = getCustomInstructions(config);
+
+    // Define section templates based on vertical
+    const getSectionTemplates = () => {
+        if (config.vertical === 'wallet') {
+            return [
+                { key: 'security', title: 'Security & Private Key Management', focus: 'private key storage, secure element, seed phrase handling, open source code, security audits' },
+                { key: 'chains', title: 'Supported Blockchains & Tokens', focus: 'which chains supported (Bitcoin, Ethereum, Solana, etc.), token standards, NFT support' },
+                { key: 'features', title: 'Features & Functionality', focus: 'staking, swaps, dApp browser, WalletConnect, buy crypto, NFT gallery' },
+                { key: 'ux', title: 'User Experience & Setup', focus: 'onboarding process, interface design, mobile vs desktop, beginner friendliness' },
+                { key: 'backup', title: 'Backup & Recovery', focus: 'seed phrase backup, cloud backup options, recovery process, inheritance features' },
+            ];
+        }
+        if (config.vertical === 'crypto') {
+            return [
+                { key: 'features', title: 'Key Features & Trading Options', focus: 'trading pairs, order types, leverage, staking, DeFi features' },
+                { key: 'security', title: 'Security & Regulation', focus: 'security measures, licenses, insurance, audit history, cold storage' },
+                { key: 'fees', title: 'Fees & Pricing', focus: 'trading fees, deposit/withdrawal fees, spread, hidden costs' },
+                { key: 'ux', title: 'User Experience & Mobile App', focus: 'interface design, mobile app, ease of use, charting tools' },
+                { key: 'support', title: 'Customer Support', focus: 'support channels, response time, languages, help resources' },
+            ];
+        }
+        // gambling (default)
+        return [
+            { key: 'games', title: 'Games & Betting Options', focus: 'game variety, providers, live casino, sports betting, slots' },
+            { key: 'bonuses', title: 'Bonuses & Promotions', focus: 'welcome bonus, wagering requirements, ongoing promos, VIP program' },
+            { key: 'payments', title: 'Payment Methods', focus: 'deposit options, withdrawal speed, limits, currencies supported' },
+            { key: 'security', title: 'Security & Licensing', focus: 'license details, encryption, responsible gambling tools, fairness' },
+            { key: 'support', title: 'Customer Support', focus: 'support channels, availability, languages, response quality' },
+        ];
+    };
+    const sectionTemplates = getSectionTemplates();
+
+    const sections: { title: string; content: string }[] = [];
+
+    for (const template of sectionTemplates) {
+        const prompt = `You are an expert ${verticalConfig.name.toLowerCase()} analyst writing a detailed section about "${template.title}" for ${research.name}.
+
+${langInstruction}
+
+**Writing Style:** Write in an IMPARTIAL, FACTUAL tone. Provide specific details and examples where possible.
+${toneInstruction}
+${keywordsInstruction}
+${customInstructions}
+
+${IN_TEXT_CITATION_RULES_HTML}
+
+**Citations Index:**
+${citationsIndex}
+
+**Platform Research Data:**
+${JSON.stringify(research, null, 2)}
+
+**Section Focus:** ${template.focus}
+
+**Requirements:**
+- Write approximately 200-300 words
+- Focus specifically on: ${template.focus}
+- Include specific details from the research data
+- Include at least 1 in-text citation
+- Output should be HTML formatted (use <p> tags, <ul>/<li> for lists if appropriate)
+- Return JSON: { "content": "<p>Your section content...</p>" }`;
+
+        const response = await withRetry(() => callWritingModel(prompt, config.writingModel));
+        const parsed = parseJsonResponse<{ content: string }>(response);
+        sections.push({
+            title: template.title,
+            content: ensureInTextCitations(parsed.content, research.citations, 1)
+        });
+    }
+
+    return sections;
+};
+
+/**
+ * Generate FAQs specific to a single platform
+ */
+export const generateSinglePlatformFAQs = async (
+    research: PlatformResearch,
+    config: ArticleConfig
+): Promise<FAQ[]> => {
+    const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
+    const langInstruction = getLanguageInstruction(config.language, 'faqs');
+    const citationsIndex = buildCitationsIndexBlock(research.citations);
+
+    const prompt = `You are an expert ${verticalConfig.name.toLowerCase()} analyst. Generate 5-7 frequently asked questions specifically about "${research.name}".
+
+${langInstruction}
+
+${IN_TEXT_CITATION_RULES_HTML}
+
+**Citations Index:**
+${citationsIndex}
+
+**Platform Research Data:**
+${JSON.stringify(research, null, 2)}
+
+**FAQ Guidelines:**
+- Questions should be specific to ${research.name}, not generic industry questions
+- Include questions about: legitimacy/safety, fees, getting started, unique features, common concerns
+- Answers should be concise but informative (2-4 sentences each)
+- Include in-text citations where facts are stated
+- Output answers as HTML (use <p> tags)
+
+Return JSON:
+{
+  "faqs": [
+    { "question": "Is ${research.name} safe and legitimate?", "answer": "<p>Answer here...</p>" }
+  ]
+}`;
+
+    const response = await withRetry(() => callWritingModel(prompt, config.writingModel));
+    const parsed = parseJsonResponse<{ faqs: FAQ[] }>(response);
+    return (parsed.faqs || []).map(faq => ({
+        ...faq,
+        answer: ensureInTextCitations(faq.answer, research.citations, 1)
+    }));
+};
+
+/**
+ * Generate a comprehensive single platform review article
+ * Used for dedicated platform review pages (e.g., "LBX.com Review 2025")
+ */
+export const generateSinglePlatformArticle = async (
+    config: ArticleConfig,
+    onProgress?: (phase: string, detail?: string) => void
+): Promise<SinglePlatformArticle | null> => {
+    if (config.platforms.length !== 1) {
+        console.error('Single platform review requires exactly 1 platform');
+        return null;
+    }
+
+    const platformName = config.platforms[0].name;
+    const affiliateUrl = config.platforms[0].affiliateUrl;
+    const vertical = config.vertical || 'gambling';
+    const verticalConfig = getVerticalConfig(vertical);
+
+    // Step 1: Research the platform
+    onProgress?.('researching', `Researching ${platformName}...`);
+    const researchResults = await researchAllPlatforms(
+        [platformName],
+        vertical,
+        (completed, total, name, fromCache) => {
+            const cacheIndicator = fromCache ? ' (cached)' : '';
+            onProgress?.('researching', `Researched ${name}${cacheIndicator}`);
+        },
+        config.researchModel
+    );
+
+    if (researchResults.length === 0 || researchResults[0].researchStatus === 'error') {
+        console.error('Research failed for platform:', platformName);
+        return null;
+    }
+
+    const research = researchResults[0];
+    const allCitations = research.citations;
+
+    // Step 2: Generate introduction
+    onProgress?.('generating-intro', `Writing introduction for ${platformName}...`);
+    const intro = await generateSinglePlatformIntro(research, config);
+
+    // Step 3: Generate ratings
+    onProgress?.('generating-reviews', `Generating ratings for ${platformName}...`);
+    const review = await generatePlatformReview(research, config, affiliateUrl);
+
+    // Step 4: Generate deep-dive sections
+    onProgress?.('generating-additional', `Writing detailed sections...`);
+    const sections = await generateSinglePlatformSections(research, config);
+
+    // Step 5: Generate platform-specific FAQs
+    onProgress?.('generating-faqs', `Generating FAQs for ${platformName}...`);
+    const faqs = await generateSinglePlatformFAQs(research, config);
+
+    // Step 6: Generate SEO metadata
+    onProgress?.('generating-seo', 'Generating SEO metadata...');
+    const seoMetadata = await generateSeoMetadata([research], config);
+
+    return {
+        platformName,
+        intro,
+        infosheet: research.infosheet,
+        ratings: review.ratings,
+        sections,
+        pros: review.pros,
+        cons: review.cons,
+        verdict: review.verdict,
+        faqs,
+        allCitations,
+        seoMetadata,
+        affiliateUrl
     };
 };

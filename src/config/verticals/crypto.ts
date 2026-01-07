@@ -2,8 +2,8 @@ import { VerticalConfig } from './types';
 
 export const cryptoConfig: VerticalConfig = {
     id: 'crypto',
-    name: 'Cryptocurrency',
-    description: 'Exchanges, wallets, and DeFi platforms',
+    name: 'Crypto Platforms',
+    description: 'Exchanges, trading platforms, and DeFi',
     
     platformTerm: 'platform',
     platformTermPlural: 'platforms',

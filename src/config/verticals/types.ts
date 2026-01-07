@@ -1,6 +1,6 @@
 // Vertical Configuration Types
 
-export type VerticalType = 'gambling' | 'crypto';
+export type VerticalType = 'gambling' | 'crypto' | 'wallet';
 
 export interface InfosheetFieldDefinition {
     key: string;
