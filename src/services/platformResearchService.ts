@@ -20,6 +20,7 @@ import {
     SeoMetadata
 } from '../types';
 import { getVerticalConfig, VerticalConfig } from '../config/verticals';
+import { getUiText } from '../utils/uiText';
 
 // --- API Configuration ---
 const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
@@ -2309,31 +2310,34 @@ export const generateSinglePlatformSections = async (
 
     // Define section templates based on vertical
     const getSectionTemplates = () => {
+        const uiText = getUiText(config.language);
+        const platformName = research.name;
+        
         if (config.vertical === 'wallet') {
             return [
-                { key: 'security', title: 'Security & Private Key Management', focus: 'private key storage, secure element, seed phrase handling, open source code, security audits' },
-                { key: 'chains', title: 'Supported Blockchains & Tokens', focus: 'which chains supported (Bitcoin, Ethereum, Solana, etc.), token standards, NFT support' },
-                { key: 'features', title: 'Features & Functionality', focus: 'staking, swaps, dApp browser, WalletConnect, buy crypto, NFT gallery' },
-                { key: 'ux', title: 'User Experience & Setup', focus: 'onboarding process, interface design, mobile vs desktop, beginner friendliness' },
-                { key: 'backup', title: 'Backup & Recovery', focus: 'seed phrase backup, cloud backup options, recovery process, inheritance features' },
+                { key: 'security', title: uiText.sectionTitles.securityPrivateKeyManagement(platformName), focus: 'private key storage, secure element, seed phrase handling, open source code, security audits' },
+                { key: 'chains', title: uiText.sectionTitles.supportedBlockchainsTokens(platformName), focus: 'which chains supported (Bitcoin, Ethereum, Solana, etc.), token standards, NFT support' },
+                { key: 'features', title: uiText.sectionTitles.featuresFunctionality(platformName), focus: 'staking, swaps, dApp browser, WalletConnect, buy crypto, NFT gallery' },
+                { key: 'ux', title: uiText.sectionTitles.userExperienceSetup(platformName), focus: 'onboarding process, interface design, mobile vs desktop, beginner friendliness' },
+                { key: 'backup', title: uiText.sectionTitles.backupRecovery(platformName), focus: 'seed phrase backup, cloud backup options, recovery process, inheritance features' },
             ];
         }
         if (config.vertical === 'crypto') {
             return [
-                { key: 'features', title: 'Key Features & Trading Options', focus: 'trading pairs, order types, leverage, staking, DeFi features' },
-                { key: 'security', title: 'Security & Regulation', focus: 'security measures, licenses, insurance, audit history, cold storage' },
-                { key: 'fees', title: 'Fees & Pricing', focus: 'trading fees, deposit/withdrawal fees, spread, hidden costs' },
-                { key: 'ux', title: 'User Experience & Mobile App', focus: 'interface design, mobile app, ease of use, charting tools' },
-                { key: 'support', title: 'Customer Support', focus: 'support channels, response time, languages, help resources' },
+                { key: 'features', title: uiText.sectionTitles.keyFeaturesTradingOptions(platformName), focus: 'trading pairs, order types, leverage, staking, DeFi features' },
+                { key: 'security', title: uiText.sectionTitles.securityRegulation(platformName), focus: 'security measures, licenses, insurance, audit history, cold storage' },
+                { key: 'fees', title: uiText.sectionTitles.feesPricing(platformName), focus: 'trading fees, deposit/withdrawal fees, spread, hidden costs' },
+                { key: 'ux', title: uiText.sectionTitles.userExperienceMobileApp(platformName), focus: 'interface design, mobile app, ease of use, charting tools' },
+                { key: 'support', title: uiText.sectionTitles.customerSupport(platformName), focus: 'support channels, response time, languages, help resources' },
             ];
         }
         // gambling (default)
         return [
-            { key: 'games', title: 'Games & Betting Options', focus: 'game variety, providers, live casino, sports betting, slots' },
-            { key: 'bonuses', title: 'Bonuses & Promotions', focus: 'welcome bonus, wagering requirements, ongoing promos, VIP program' },
-            { key: 'payments', title: 'Payment Methods', focus: 'deposit options, withdrawal speed, limits, currencies supported' },
-            { key: 'security', title: 'Security & Licensing', focus: 'license details, encryption, responsible gambling tools, fairness' },
-            { key: 'support', title: 'Customer Support', focus: 'support channels, availability, languages, response quality' },
+            { key: 'games', title: uiText.sectionTitles.gamesBettingOptions(platformName), focus: 'game variety, providers, live casino, sports betting, slots' },
+            { key: 'bonuses', title: uiText.sectionTitles.bonusesPromotions(platformName), focus: 'welcome bonus, wagering requirements, ongoing promos, VIP program' },
+            { key: 'payments', title: uiText.sectionTitles.paymentMethods(platformName), focus: 'deposit options, withdrawal speed, limits, currencies supported' },
+            { key: 'security', title: uiText.sectionTitles.securityLicensing(platformName), focus: 'license details, encryption, responsible gambling tools, fairness' },
+            { key: 'support', title: uiText.sectionTitles.customerSupport(platformName), focus: 'support channels, availability, languages, response quality' },
         ];
     };
     const sectionTemplates = getSectionTemplates();

@@ -55,6 +55,29 @@ export type UiText = {
 
     visitPlatformCta: (platformName: string) => string;
     platformReviewTitle: (platformName: string) => string;
+
+    // Section titles for single platform reviews (H2 headings)
+    sectionTitles: {
+        // Crypto vertical
+        keyFeaturesTradingOptions: (platformName: string) => string;
+        securityRegulation: (platformName: string) => string;
+        feesPricing: (platformName: string) => string;
+        userExperienceMobileApp: (platformName: string) => string;
+        customerSupport: (platformName: string) => string;
+        
+        // Gambling vertical
+        gamesBettingOptions: (platformName: string) => string;
+        bonusesPromotions: (platformName: string) => string;
+        paymentMethods: (platformName: string) => string;
+        securityLicensing: (platformName: string) => string;
+        
+        // Wallet vertical
+        securityPrivateKeyManagement: (platformName: string) => string;
+        supportedBlockchainsTokens: (platformName: string) => string;
+        featuresFunctionality: (platformName: string) => string;
+        userExperienceSetup: (platformName: string) => string;
+        backupRecovery: (platformName: string) => string;
+    };
 };
 
 export const getUiText = (language: Language): UiText => {
@@ -125,7 +148,29 @@ export const getUiText = (language: Language): UiText => {
                 },
 
                 visitPlatformCta: (platformName) => `ไปที่ ${platformName}`,
-                platformReviewTitle: (platformName) => `รีวิว ${platformName}`
+                platformReviewTitle: (platformName) => `รีวิว ${platformName}`,
+
+                sectionTitles: {
+                    // Crypto vertical
+                    keyFeaturesTradingOptions: (platformName) => `คุณสมบัติและตัวเลือกการเทรดของ ${platformName}`,
+                    securityRegulation: (platformName) => `ความปลอดภัยและการกำกับดูแลของ ${platformName}`,
+                    feesPricing: (platformName) => `ค่าธรรมเนียมและราคาของ ${platformName}`,
+                    userExperienceMobileApp: (platformName) => `ประสบการณ์ผู้ใช้และแอปมือถือของ ${platformName}`,
+                    customerSupport: (platformName) => `บริการลูกค้าของ ${platformName}`,
+                    
+                    // Gambling vertical
+                    gamesBettingOptions: (platformName) => `เกมและตัวเลือกการเดิมพันของ ${platformName}`,
+                    bonusesPromotions: (platformName) => `โบนัสและโปรโมชันของ ${platformName}`,
+                    paymentMethods: (platformName) => `วิธีการชำระเงินของ ${platformName}`,
+                    securityLicensing: (platformName) => `ความปลอดภัยและใบอนุญาตของ ${platformName}`,
+                    
+                    // Wallet vertical
+                    securityPrivateKeyManagement: (platformName) => `ความปลอดภัยและการจัดการ Private Key ของ ${platformName}`,
+                    supportedBlockchainsTokens: (platformName) => `บล็อกเชนและโทเคนที่รองรับของ ${platformName}`,
+                    featuresFunctionality: (platformName) => `คุณสมบัติและฟังก์ชันการทำงานของ ${platformName}`,
+                    userExperienceSetup: (platformName) => `ประสบการณ์ผู้ใช้และการตั้งค่าของ ${platformName}`,
+                    backupRecovery: (platformName) => `การสำรองและกู้คืนของ ${platformName}`
+                }
             };
 
         case Language.VIETNAMESE:
@@ -194,7 +239,29 @@ export const getUiText = (language: Language): UiText => {
                 },
 
                 visitPlatformCta: (platformName) => `Truy cập ${platformName}`,
-                platformReviewTitle: (platformName) => `Đánh giá ${platformName}`
+                platformReviewTitle: (platformName) => `Đánh giá ${platformName}`,
+
+                sectionTitles: {
+                    // Crypto vertical
+                    keyFeaturesTradingOptions: (platformName) => `Tính năng và Tùy chọn Giao dịch của ${platformName}`,
+                    securityRegulation: (platformName) => `Bảo mật và Quy định của ${platformName}`,
+                    feesPricing: (platformName) => `Phí và Bảng giá của ${platformName}`,
+                    userExperienceMobileApp: (platformName) => `Trải nghiệm Người dùng và Ứng dụng Di động của ${platformName}`,
+                    customerSupport: (platformName) => `Hỗ trợ Khách hàng của ${platformName}`,
+                    
+                    // Gambling vertical
+                    gamesBettingOptions: (platformName) => `Trò chơi và Tùy chọn Cá cược của ${platformName}`,
+                    bonusesPromotions: (platformName) => `Thưởng và Khuyến mãi của ${platformName}`,
+                    paymentMethods: (platformName) => `Phương thức Thanh toán của ${platformName}`,
+                    securityLicensing: (platformName) => `Bảo mật và Giấy phép của ${platformName}`,
+                    
+                    // Wallet vertical
+                    securityPrivateKeyManagement: (platformName) => `Bảo mật và Quản lý Private Key của ${platformName}`,
+                    supportedBlockchainsTokens: (platformName) => `Blockchain và Token được Hỗ trợ bởi ${platformName}`,
+                    featuresFunctionality: (platformName) => `Tính năng và Chức năng của ${platformName}`,
+                    userExperienceSetup: (platformName) => `Trải nghiệm Người dùng và Cài đặt của ${platformName}`,
+                    backupRecovery: (platformName) => `Sao lưu và Phục hồi của ${platformName}`
+                }
             };
 
         case Language.JAPANESE:
@@ -263,7 +330,29 @@ export const getUiText = (language: Language): UiText => {
                 },
 
                 visitPlatformCta: (platformName) => `${platformName}へ移動`,
-                platformReviewTitle: (platformName) => `${platformName}のレビュー`
+                platformReviewTitle: (platformName) => `${platformName}のレビュー`,
+
+                sectionTitles: {
+                    // Crypto vertical
+                    keyFeaturesTradingOptions: (platformName) => `${platformName}の主要機能と取引オプション`,
+                    securityRegulation: (platformName) => `${platformName}のセキュリティと規制`,
+                    feesPricing: (platformName) => `${platformName}の手数料と料金プラン`,
+                    userExperienceMobileApp: (platformName) => `${platformName}のユーザー体験とモバイルアプリ`,
+                    customerSupport: (platformName) => `${platformName}のカスタマーサポート`,
+                    
+                    // Gambling vertical
+                    gamesBettingOptions: (platformName) => `${platformName}のゲームとベッティングオプション`,
+                    bonusesPromotions: (platformName) => `${platformName}のボーナスとプロモーション`,
+                    paymentMethods: (platformName) => `${platformName}の決済方法`,
+                    securityLicensing: (platformName) => `${platformName}のセキュリティとライセンス`,
+                    
+                    // Wallet vertical
+                    securityPrivateKeyManagement: (platformName) => `${platformName}のセキュリティと秘密鍵管理`,
+                    supportedBlockchainsTokens: (platformName) => `${platformName}がサポートするブロックチェーンとトークン`,
+                    featuresFunctionality: (platformName) => `${platformName}の機能と性能`,
+                    userExperienceSetup: (platformName) => `${platformName}のユーザー体験とセットアップ`,
+                    backupRecovery: (platformName) => `${platformName}のバックアップと復元`
+                }
             };
 
         case Language.KOREAN:
@@ -332,7 +421,29 @@ export const getUiText = (language: Language): UiText => {
                 },
 
                 visitPlatformCta: (platformName) => `${platformName} 방문`,
-                platformReviewTitle: (platformName) => `${platformName} 리뷰`
+                platformReviewTitle: (platformName) => `${platformName} 리뷰`,
+
+                sectionTitles: {
+                    // Crypto vertical
+                    keyFeaturesTradingOptions: (platformName) => `${platformName}의 주요 기능 및 거래 옵션`,
+                    securityRegulation: (platformName) => `${platformName}의 보안 및 규제`,
+                    feesPricing: (platformName) => `${platformName}의 수수료 및 가격 정책`,
+                    userExperienceMobileApp: (platformName) => `${platformName}의 사용자 경험 및 모바일 앱`,
+                    customerSupport: (platformName) => `${platformName}의 고객 지원`,
+                    
+                    // Gambling vertical
+                    gamesBettingOptions: (platformName) => `${platformName}의 게임 및 베팅 옵션`,
+                    bonusesPromotions: (platformName) => `${platformName}의 보너스 및 프로모션`,
+                    paymentMethods: (platformName) => `${platformName}의 결제 수단`,
+                    securityLicensing: (platformName) => `${platformName}의 보안 및 라이선스`,
+                    
+                    // Wallet vertical
+                    securityPrivateKeyManagement: (platformName) => `${platformName}의 보안 및 개인 키 관리`,
+                    supportedBlockchainsTokens: (platformName) => `${platformName}이 지원하는 블록체인 및 토큰`,
+                    featuresFunctionality: (platformName) => `${platformName}의 기능 및 성능`,
+                    userExperienceSetup: (platformName) => `${platformName}의 사용자 경험 및 설정`,
+                    backupRecovery: (platformName) => `${platformName}의 백업 및 복구`
+                }
             };
 
         case Language.ENGLISH:
@@ -390,7 +501,29 @@ export const getUiText = (language: Language): UiText => {
                 translateRatingCategory: (category) => category,
 
                 visitPlatformCta: (platformName) => `Visit ${platformName}`,
-                platformReviewTitle: (platformName) => `${platformName} Review`
+                platformReviewTitle: (platformName) => `${platformName} Review`,
+
+                sectionTitles: {
+                    // Crypto vertical
+                    keyFeaturesTradingOptions: (platformName) => `${platformName} Key Features & Trading Options`,
+                    securityRegulation: (platformName) => `${platformName} Security & Regulation`,
+                    feesPricing: (platformName) => `${platformName} Fees & Pricing`,
+                    userExperienceMobileApp: (platformName) => `${platformName} User Experience & Mobile App`,
+                    customerSupport: (platformName) => `${platformName} Customer Support`,
+                    
+                    // Gambling vertical
+                    gamesBettingOptions: (platformName) => `${platformName} Games & Betting Options`,
+                    bonusesPromotions: (platformName) => `${platformName} Bonuses & Promotions`,
+                    paymentMethods: (platformName) => `${platformName} Payment Methods`,
+                    securityLicensing: (platformName) => `${platformName} Security & Licensing`,
+                    
+                    // Wallet vertical
+                    securityPrivateKeyManagement: (platformName) => `${platformName} Security & Private Key Management`,
+                    supportedBlockchainsTokens: (platformName) => `${platformName} Supported Blockchains & Tokens`,
+                    featuresFunctionality: (platformName) => `${platformName} Features & Functionality`,
+                    userExperienceSetup: (platformName) => `${platformName} User Experience & Setup`,
+                    backupRecovery: (platformName) => `${platformName} Backup & Recovery`
+                }
             };
     }
 };
