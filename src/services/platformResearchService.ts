@@ -334,7 +334,9 @@ const getToneInstruction = (config: ArticleConfig): string => {
     return toneDescriptions[config.toneOfVoice] || toneDescriptions[ToneOfVoice.PROFESSIONAL];
 };
 
-const getKeywordsInstruction = (config: ArticleConfig): string => {
+type KeywordInstructionScope = 'section' | 'faq';
+
+const getKeywordsInstruction = (config: ArticleConfig, scope: KeywordInstructionScope = 'section'): string => {
     if (!config.targetKeywords || config.targetKeywords.length === 0) return '';
     
     const primary = config.targetKeywords.find(k => k.isPrimary);
@@ -345,7 +347,12 @@ const getKeywordsInstruction = (config: ArticleConfig): string => {
         instruction += `- Primary keyword: "${primary.keyword}" - use this naturally 3-5 times throughout the content.\n`;
     }
     if (secondary.length > 0) {
-        instruction += `- Secondary keywords: ${secondary.map(k => `"${k.keyword}"`).join(', ')} - incorporate these naturally where relevant.\n`;
+        if (scope === 'faq') {
+            instruction += `- Secondary keywords: ${secondary.map(k => `"${k.keyword}"`).join(', ')} - use only when they fit a specific question or answer and add value. If a keyword is not useful, skip it.\n`;
+            instruction += 'FAQs are the preferred place to cover secondary keywords that do not fit elsewhere, but never force them.\n';
+        } else {
+            instruction += `- Secondary keywords: ${secondary.map(k => `"${k.keyword}"`).join(', ')} - OPTIONAL. Before using one, ask whether it is genuinely useful for this section. If it does not fit the section context, skip it and leave it for FAQs.\n`;
+        }
     }
     instruction += 'Integrate keywords naturally without keyword stuffing.\n';
     return instruction;
@@ -1059,7 +1066,7 @@ export const generateIntroduction = async (
     const citationsIndex = buildCitationsIndexBlock(allCitations);
 
     const toneInstruction = getToneInstruction(config);
-    const keywordsInstruction = getKeywordsInstruction(config);
+    const keywordsInstruction = getKeywordsInstruction(config, 'section');
     const seoInstruction = getSeoInstruction(config);
     const customInstructions = getCustomInstructions(config);
     const internalLinksInstruction = getInternalLinksInstruction(config);
@@ -1313,7 +1320,7 @@ export const generatePlatformReview = async (
     const noDataMsg = getNoDataMessage();
 
     const toneInstruction = getToneInstruction(config);
-    const keywordsInstruction = getKeywordsInstruction(config);
+    const keywordsInstruction = getKeywordsInstruction(config, 'section');
     const seoInstruction = getSeoInstruction(config);
     const customInstructions = getCustomInstructions(config);
     const internalLinksInstruction = getInternalLinksInstruction(config);
@@ -1646,7 +1653,7 @@ export const generateFAQs = async (
     const citationsIndex = buildCitationsIndexBlock(faqCitations);
 
     const toneInstruction = getToneInstruction(config);
-    const keywordsInstruction = getKeywordsInstruction(config);
+    const keywordsInstruction = getKeywordsInstruction(config, 'faq');
     const seoInstruction = getSeoInstruction(config);
     const customInstructions = getCustomInstructions(config);
 
@@ -2008,7 +2015,7 @@ export const generateAdditionalSectionWithKeywords = async (
 - Primary: ${primaryKeyword || 'none'}
 - Secondary: ${secondaryKeywords.join(', ') || 'none'}
 
-IMPORTANT: Only use keywords where they fit naturally. User intent and readability come first. The top-ranking competitors have proven what works - follow their patterns.`
+IMPORTANT: Only use keywords where they fit naturally. Before using a secondary keyword, ask whether it is genuinely useful for this section. If it does not fit the context, skip it and leave it for FAQs. User intent and readability come first. The top-ranking competitors have proven what works - follow their patterns.`
         : '';
 
     const competitorContext = relatedHeadings.length > 0
@@ -2254,7 +2261,7 @@ export const generateSinglePlatformIntro = async (
     const langInstruction = getLanguageInstruction(config.language, 'introduction');
     const citationsIndex = buildCitationsIndexBlock(research.citations);
     const toneInstruction = getToneInstruction(config);
-    const keywordsInstruction = getKeywordsInstruction(config);
+    const keywordsInstruction = getKeywordsInstruction(config, 'section');
     const customInstructions = getCustomInstructions(config);
 
     const prompt = `You are an expert ${verticalConfig.name.toLowerCase()} analyst writing a comprehensive introduction for a dedicated review of "${research.name}".
@@ -2305,7 +2312,7 @@ export const generateSinglePlatformSections = async (
     const langInstruction = getLanguageInstruction(config.language, 'review');
     const citationsIndex = buildCitationsIndexBlock(research.citations);
     const toneInstruction = getToneInstruction(config);
-    const keywordsInstruction = getKeywordsInstruction(config);
+    const keywordsInstruction = getKeywordsInstruction(config, 'section');
     const customInstructions = getCustomInstructions(config);
 
     // Define section templates based on vertical
@@ -2393,10 +2400,12 @@ export const generateSinglePlatformFAQs = async (
     const verticalConfig = getVerticalConfig(config.vertical || 'gambling');
     const langInstruction = getLanguageInstruction(config.language, 'faqs');
     const citationsIndex = buildCitationsIndexBlock(research.citations);
+    const keywordsInstruction = getKeywordsInstruction(config, 'faq');
 
     const prompt = `You are an expert ${verticalConfig.name.toLowerCase()} analyst. Generate 5-7 frequently asked questions specifically about "${research.name}".
 
 ${langInstruction}
+${keywordsInstruction}
 
 ${IN_TEXT_CITATION_RULES_HTML}
 
