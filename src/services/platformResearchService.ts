@@ -344,7 +344,16 @@ const getKeywordsInstruction = (config: ArticleConfig, scope: KeywordInstruction
     
     let instruction = '\n**Target Keywords:**\n';
     if (primary) {
-        instruction += `- Primary keyword: "${primary.keyword}" - use this naturally 3-5 times throughout the content.\n`;
+        // For Review Snippet mode, calculate mentions based on platform count
+        if (config.articleMode === 'REVIEW_SNIPPET') {
+            const mentionsPerSnippet = 2;
+            const totalMentions = config.platforms.length * mentionsPerSnippet;
+            instruction += `- Primary keyword: "${primary.keyword}" - use this naturally ${mentionsPerSnippet} times per snippet (${totalMentions} total across all snippets).\n`;
+        } else {
+            // Use configured count or default 15 for other modes
+            const mentionCount = config.primaryKeywordCount || 15;
+            instruction += `- Primary keyword: "${primary.keyword}" - use this naturally ${mentionCount} times throughout the content.\n`;
+        }
     }
     if (secondary.length > 0) {
         if (scope === 'faq') {
@@ -359,7 +368,7 @@ const getKeywordsInstruction = (config: ArticleConfig, scope: KeywordInstruction
 };
 
 const getSeoInstruction = (config: ArticleConfig): string => {
-    if (config.seoMode === SeoMode.DEFAULT) {
+    if (config.seoMode === SeoMode.STANDARD) {
         return 'Follow standard SEO best practices: use descriptive headings, natural keyword placement, and engaging meta-friendly content.';
     }
     
@@ -1384,12 +1393,17 @@ Each category is scored 1-10 based on these criteria:
 - **4-1 (Below Average to Poor):** Significant issues
 ` : '';
 
+    // For Review Snippet mode, adjust keyword instruction to be per-snippet
+    const adjustedKeywordsInstruction = config.articleMode === 'REVIEW_SNIPPET'
+        ? keywordsInstruction.replace(/times throughout the content/, 'times in this review snippet')
+        : keywordsInstruction;
+
     const prompt = `You are an impartial ${verticalConfig.name.toLowerCase()} industry analyst writing a factual review for "${research.name}".
 
 ${langInstruction}
 
 **Writing Style:** Write in an IMPARTIAL, FACTUAL tone. This is NOT a marketing pitch. Present facts objectively, acknowledge both strengths and weaknesses fairly. Avoid promotional language like "amazing", "incredible", "must-try". Instead use neutral language like "offers", "provides", "features".
-${keywordsInstruction}
+${adjustedKeywordsInstruction}
 ${seoInstruction}
 ${customInstructions}
 ${internalLinksInstruction}

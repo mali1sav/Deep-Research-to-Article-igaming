@@ -86,11 +86,11 @@ const InfosheetTable: React.FC<InfosheetTableProps> = ({ infosheet, language }) 
                 </tr>
                 <tr>
                     <td className="py-2 text-gray-500 font-medium">{uiText.infosheetCurrencies}</td>
-                    <td className="py-2 text-gray-900">{infosheet.supportedCurrencies.join(', ') || 'N/A'}</td>
+                    <td className="py-2 text-gray-900">{(infosheet.supportedCurrencies || []).join(', ') || 'N/A'}</td>
                 </tr>
                 <tr>
                     <td className="py-2 text-gray-500 font-medium">{uiText.infosheetPaymentMethods}</td>
-                    <td className="py-2 text-gray-900">{infosheet.paymentMethods.join(', ') || 'N/A'}</td>
+                    <td className="py-2 text-gray-900">{(infosheet.paymentMethods || []).join(', ') || 'N/A'}</td>
                 </tr>
                 <tr>
                     <td className="py-2 text-gray-500 font-medium">KYC</td>
@@ -157,6 +157,8 @@ interface PlatformReviewCardProps {
     showRatings?: boolean;
     showProsCons?: boolean;
     showVerdict?: boolean;
+    hideOverviewHeading?: boolean;
+    hideCitations?: boolean;
     onEditOverview?: () => void;
     onEditVerdict?: () => void;
     onEditProsCons?: () => void;
@@ -171,6 +173,8 @@ export const PlatformReviewCard: React.FC<PlatformReviewCardProps> = ({
     showRatings = true,
     showProsCons = true,
     showVerdict = true,
+    hideOverviewHeading = false,
+    hideCitations = false,
     onEditOverview,
     onEditVerdict,
     onRegenerateOverview,
@@ -205,6 +209,7 @@ export const PlatformReviewCard: React.FC<PlatformReviewCardProps> = ({
                 <div className="border-t border-gray-200 p-6 space-y-6">
                     {/* Overview */}
                     <div>
+                        {!hideOverviewHeading && (
                         <div className="flex items-center justify-between mb-3">
                             <h4 className="text-md font-semibold text-gray-800">{uiText.overview}</h4>
                             <div className="flex gap-2">
@@ -226,6 +231,7 @@ export const PlatformReviewCard: React.FC<PlatformReviewCardProps> = ({
                                 )}
                             </div>
                         </div>
+                        )}
                         <div 
                             className="prose prose-sm max-w-none text-gray-700"
                             dangerouslySetInnerHTML={{ __html: review.overview }}
@@ -296,7 +302,7 @@ export const PlatformReviewCard: React.FC<PlatformReviewCardProps> = ({
                     )}
 
                     {/* Citations */}
-                    {review.citations.length > 0 && (
+                    {!hideCitations && review.citations.length > 0 && (
                         <CitationList citations={review.citations} title={uiText.allSources} />
                     )}
                 </div>

@@ -747,17 +747,35 @@ export const InputForm: React.FC<InputFormProps> = ({
                             </div>
                         )}
                         <div>
-                            <label htmlFor="primaryKeywordCount" className="block text-sm font-medium text-gray-700 mb-1">Primary KW Mentions</label>
-                            <input
-                                type="number"
-                                id="primaryKeywordCount"
-                                min="1"
-                                max="50"
-                                value={config.primaryKeywordCount || 15}
-                                onChange={(e) => setConfig({ ...config, primaryKeywordCount: parseInt(e.target.value) || 15 })}
-                                className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">Times to mention primary keyword</p>
+                            <label htmlFor="primaryKeywordCount" className="block text-sm font-medium text-gray-700 mb-1">
+                                Primary KW Mentions
+                                {articleMode === ArticleMode.REVIEW_SNIPPET && (
+                                    <span className="ml-2 text-xs text-blue-600 font-normal">
+                                        (Auto: 2 per snippet)
+                                    </span>
+                                )}
+                            </label>
+                            {articleMode === ArticleMode.REVIEW_SNIPPET ? (
+                                <div className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-sm text-gray-600">
+                                    Automatic: {config.platforms.length * 2} mentions total (2 per snippet)
+                                </div>
+                            ) : (
+                                <input
+                                    type="number"
+                                    id="primaryKeywordCount"
+                                    min="1"
+                                    max="50"
+                                    value={config.primaryKeywordCount || 15}
+                                    onChange={(e) => setConfig({ ...config, primaryKeywordCount: parseInt(e.target.value) || 15 })}
+                                    className="w-full bg-white border border-gray-300 rounded-md p-2 text-sm text-gray-800 focus:ring-2 focus:ring-blue-500"
+                                />
+                            )}
+                            <p className="text-xs text-gray-500 mt-1">
+                                {articleMode === ArticleMode.REVIEW_SNIPPET 
+                                    ? "Automatically calculated for balanced keyword distribution"
+                                    : "Times to mention primary keyword"
+                                }
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -1026,6 +1044,9 @@ export const InputForm: React.FC<InputFormProps> = ({
                                     </div>
                                 ) : (
                                 <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                    {/* Hide Infosheet and Ratings for Crypto/Wallet + Review Snippet mode */}
+                                    {!(articleMode === ArticleMode.REVIEW_SNIPPET && (config.vertical === 'crypto' || config.vertical === 'wallet')) && (
+                                    <>
                                     <Toggle 
                                         checked={config.includeSections.platformInfosheet} 
                                         onChange={(v) => updateIncludeSection('platformInfosheet', v)} 
@@ -1036,6 +1057,8 @@ export const InputForm: React.FC<InputFormProps> = ({
                                         onChange={(v) => updateIncludeSection('platformRatings', v)} 
                                         label="Ratings (1-10)" 
                                     />
+                                    </>
+                                    )}
                                     <Toggle 
                                         checked={config.includeSections.prosCons} 
                                         onChange={(v) => updateIncludeSection('prosCons', v)} 

@@ -710,9 +710,19 @@ const App: React.FC = () => {
             const delayMs = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
             const DELAY_MS = 5000;
             
+            // Check which platforms need review generation (skip already cached)
+            const existingReviews = getCachedReviews(config.vertical || 'gambling');
+            const existingReviewNames = new Set(existingReviews.map(r => r.platformName.toLowerCase()));
+            
             for (let i = 0; i < researchResults.length; i++) {
                 const research = researchResults[i];
                 const platformInput = config.platforms.find(p => p.name === research.name);
+                
+                // Skip if review already cached
+                if (existingReviewNames.has(research.name.toLowerCase())) {
+                    setLoadingMessage(`Using cached review: ${research.name} (${i + 1}/${researchResults.length})`);
+                    continue;
+                }
                 
                 if (i > 0) {
                     setLoadingMessage(`Waiting before processing ${research.name}... (${i + 1}/${researchResults.length})`);
@@ -731,7 +741,45 @@ const App: React.FC = () => {
                 saveReviewToCache(review, config.vertical || 'gambling');
             }
 
-            // Research complete
+            // For REVIEW_SNIPPET mode: Display the generated snippets immediately
+            if (articleMode === ArticleMode.REVIEW_SNIPPET) {
+                // Build a minimal GeneratedArticle with just the reviews
+                const cachedReviews = getCachedReviews(config.vertical || 'gambling');
+                const platformReviews = config.platforms
+                    .map(p => cachedReviews.find(r => r.platformName.toLowerCase() === p.name.toLowerCase()))
+                    .filter((r): r is NonNullable<typeof r> => r !== undefined)
+                    .map(cached => ({
+                        platformName: cached.platformName,
+                        overview: cached.overview,
+                        ratings: [],  // Ratings not stored in cache
+                        infosheet: cached.infosheet,
+                        pros: cached.pros,
+                        cons: cached.cons,
+                        verdict: cached.verdict,
+                        citations: cached.citations || [],
+                        affiliateUrl: cached.affiliateUrl
+                    }));
+                
+                // Collect all citations from research
+                const allCitations = researchResults.flatMap(r => r.citations || []);
+                
+                const snippetArticle: GeneratedArticle = {
+                    intro: '',  // No intro for snippets
+                    platformQuickList: [],  // No quick list for snippets
+                    comparisonTable: [],  // No comparison table for snippets
+                    platformReviews,
+                    additionalSections: [],
+                    faqs: [],  // No FAQs for snippets
+                    allCitations
+                };
+                
+                setGeneratedArticle(snippetArticle);
+                setWorkflowPhase('completed');
+                setLoadingMessage('');
+                return;
+            }
+
+            // Research complete (FULL_COMPARISON mode - user will assemble later)
             setWorkflowPhase('idle');
             setLoadingMessage('');
             
@@ -945,13 +993,15 @@ const App: React.FC = () => {
 
         const uiText = getUiText(config.language);
         const useShortcodes = config.useShortcodes !== false; // default true
+        const isReviewSnippet = config.articleMode === ArticleMode.REVIEW_SNIPPET;
+        const isCryptoSnippet = isReviewSnippet && (config.vertical === 'crypto' || config.vertical === 'wallet');
 
         let html = useShortcodes 
             ? `<!-- Article Content - WordPress Ultimate Shortcode Format -->\n`
             : `<!-- Article Content - Plain HTML -->\n`;
         
-        // SEO Metadata block at the top
-        if (generatedArticle.seoMetadata) {
+        // SEO Metadata block at the top - skip for Review Snippet
+        if (!isReviewSnippet && generatedArticle.seoMetadata) {
             const seo = generatedArticle.seoMetadata;
             html += `<!--
 === SEO METADATA ===
@@ -964,17 +1014,22 @@ Image Alt Text: ${seo.imageAltText}
 -->\n\n`;
         }
         
-        html += generatedArticle.intro + '\n\n';
+        // Intro - skip for Review Snippet
+        if (!isReviewSnippet && generatedArticle.intro) {
+            html += generatedArticle.intro + '\n\n';
+        }
         
-        // Platform quick list
-        html += `<h2>${uiText.platformOverview}</h2>\n<ol>\n`;
-        generatedArticle.platformQuickList.forEach(p => {
-            html += `<li><strong>${p.name}</strong> - ${p.shortDescription}</li>\n`;
-        });
-        html += `</ol>\n\n`;
+        // Platform quick list - skip for Review Snippet
+        if (!isReviewSnippet && generatedArticle.platformQuickList.length > 0) {
+            html += `<h2>${uiText.platformOverview}</h2>\n<ol>\n`;
+            generatedArticle.platformQuickList.forEach(p => {
+                html += `<li><strong>${p.name}</strong> - ${p.shortDescription}</li>\n`;
+            });
+            html += `</ol>\n\n`;
+        }
 
-        // Comparison table (dynamic columns chosen by LLM)
-        if (generatedArticle.comparisonTable.length > 0) {
+        // Comparison table - skip for Review Snippet
+        if (!isReviewSnippet && generatedArticle.comparisonTable.length > 0) {
             html += `<h2>${uiText.platformComparison}</h2>\n`;
             if (useShortcodes) html += `[su_table responsive="yes"]\n`;
             
@@ -1006,8 +1061,8 @@ Image Alt Text: ${seo.imageAltText}
             html += `<h2>${uiText.platformReviewTitle(review.platformName)}</h2>\n`;
             html += review.overview + '\n\n';
             
-            // Rating bars (if enabled and available) - using inline HTML as no shortcode equivalent
-            if (config.includeSections.platformRatings && review.ratings && review.ratings.length > 0) {
+            // Rating bars (if enabled and available) - skip for Crypto + Snippet mode
+            if (!isCryptoSnippet && config.includeSections.platformRatings && review.ratings && review.ratings.length > 0) {
                 html += `<h3>${uiText.platformRatings}</h3>\n`;
                 review.ratings.forEach(r => {
                     const score = r.score;
@@ -1024,8 +1079,8 @@ Image Alt Text: ${seo.imageAltText}
                 html += `\n`;
             }
             
-            // Infosheet (with or without shortcodes)
-            if (config.includeSections.platformInfosheet) {
+            // Infosheet - skip for Crypto + Snippet mode
+            if (!isCryptoSnippet && config.includeSections.platformInfosheet) {
                 html += generateInfosheetHtml(review.infosheet, uiText, useShortcodes);
             }
             
@@ -1033,27 +1088,33 @@ Image Alt Text: ${seo.imageAltText}
             if (config.includeSections.prosCons) {
                 if (useShortcodes) {
                     html += `[su_row]\n[su_column size="1/2"]\n`;
-                } else {
-                    html += `<div style="display: flex; gap: 24px;">\n<div style="flex: 1;">\n`;
-                }
-                html += `<h4 style="color: #166534;">✓ ${uiText.pros}</h4>\n<ul>\n`;
-                review.pros.forEach(p => {
-                    html += `<li><span style="color: #22c55e;">✓</span> ${p}</li>\n`;
-                });
-                html += `</ul>\n`;
-                if (useShortcodes) {
+                    html += `<h4 style="color: #166534;">✓ ${uiText.pros}</h4>\n`;
+                    html += `[su_list icon="icon: check" icon_color="#00aa00"]\n<ul>\n`;
+                    review.pros.forEach(p => {
+                        html += `<li>${p}</li>\n`;
+                    });
+                    html += `</ul>\n[/su_list]\n`;
                     html += `[/su_column]\n[su_column size="1/2"]\n`;
-                } else {
-                    html += `</div>\n<div style="flex: 1;">\n`;
-                }
-                html += `<h4 style="color: #991b1b;">✗ ${uiText.cons}</h4>\n<ul>\n`;
-                review.cons.forEach(c => {
-                    html += `<li><span style="color: #ef4444;">✗</span> ${c}</li>\n`;
-                });
-                html += `</ul>\n`;
-                if (useShortcodes) {
+                    html += `<h4 style="color: #991b1b;">✗ ${uiText.cons}</h4>\n`;
+                    html += `[su_list icon="icon: close" icon_color="#cc0000"]\n<ul>\n`;
+                    review.cons.forEach(c => {
+                        html += `<li>${c}</li>\n`;
+                    });
+                    html += `</ul>\n[/su_list]\n`;
                     html += `[/su_column]\n[/su_row]\n\n`;
                 } else {
+                    html += `<div style="display: flex; gap: 24px;">\n<div style="flex: 1;">\n`;
+                    html += `<h4 style="color: #166534;">✓ ${uiText.pros}</h4>\n<ul>\n`;
+                    review.pros.forEach(p => {
+                        html += `<li><span style="color: #22c55e;">✓</span> ${p}</li>\n`;
+                    });
+                    html += `</ul>\n`;
+                    html += `</div>\n<div style="flex: 1;">\n`;
+                    html += `<h4 style="color: #991b1b;">✗ ${uiText.cons}</h4>\n<ul>\n`;
+                    review.cons.forEach(c => {
+                        html += `<li><span style="color: #ef4444;">✗</span> ${c}</li>\n`;
+                    });
+                    html += `</ul>\n`;
                     html += `</div>\n</div>\n\n`;
                 }
             }
@@ -1078,23 +1139,25 @@ Image Alt Text: ${seo.imageAltText}
             }
         });
 
-        // Scoring Methodology Section (translated)
-        html += `<h2>${uiText.ratingMethodologyTitle}</h2>\n`;
-        html += `<p>${uiText.ratingMethodologyIntro}</p>\n`;
-        if (useShortcodes) html += `[su_table responsive="yes"]\n`;
-        html += `<table>\n<thead>\n<tr><th>${uiText.ratingScore}</th><th>${uiText.ratingMeaning}</th><th>${uiText.ratingCriteria}</th></tr>\n</thead>\n<tbody>\n`;
-        html += `<tr><td>9-10</td><td>${uiText.ratingExceptional}</td><td>${uiText.ratingExceptionalCriteria}</td></tr>\n`;
-        html += `<tr><td>8</td><td>${uiText.ratingExcellent}</td><td>${uiText.ratingExcellentCriteria}</td></tr>\n`;
-        html += `<tr><td>7</td><td>${uiText.ratingVeryGood}</td><td>${uiText.ratingVeryGoodCriteria}</td></tr>\n`;
-        html += `<tr><td>6</td><td>${uiText.ratingGood}</td><td>${uiText.ratingGoodCriteria}</td></tr>\n`;
-        html += `<tr><td>5</td><td>${uiText.ratingAdequate}</td><td>${uiText.ratingAdequateCriteria}</td></tr>\n`;
-        html += `<tr><td>1-4</td><td>${uiText.ratingBelowAverage}</td><td>${uiText.ratingBelowAverageCriteria}</td></tr>\n`;
-        html += `</tbody>\n</table>\n`;
-        if (useShortcodes) html += `[/su_table]\n`;
-        html += `<p><strong>${uiText.starRatingAggregation}</strong></p>\n\n`;
+        // Scoring Methodology Section - skip for Review Snippet
+        if (!isReviewSnippet) {
+            html += `<h2>${uiText.ratingMethodologyTitle}</h2>\n`;
+            html += `<p>${uiText.ratingMethodologyIntro}</p>\n`;
+            if (useShortcodes) html += `[su_table responsive="yes"]\n`;
+            html += `<table>\n<thead>\n<tr><th>${uiText.ratingScore}</th><th>${uiText.ratingMeaning}</th><th>${uiText.ratingCriteria}</th></tr>\n</thead>\n<tbody>\n`;
+            html += `<tr><td>9-10</td><td>${uiText.ratingExceptional}</td><td>${uiText.ratingExceptionalCriteria}</td></tr>\n`;
+            html += `<tr><td>8</td><td>${uiText.ratingExcellent}</td><td>${uiText.ratingExcellentCriteria}</td></tr>\n`;
+            html += `<tr><td>7</td><td>${uiText.ratingVeryGood}</td><td>${uiText.ratingVeryGoodCriteria}</td></tr>\n`;
+            html += `<tr><td>6</td><td>${uiText.ratingGood}</td><td>${uiText.ratingGoodCriteria}</td></tr>\n`;
+            html += `<tr><td>5</td><td>${uiText.ratingAdequate}</td><td>${uiText.ratingAdequateCriteria}</td></tr>\n`;
+            html += `<tr><td>1-4</td><td>${uiText.ratingBelowAverage}</td><td>${uiText.ratingBelowAverageCriteria}</td></tr>\n`;
+            html += `</tbody>\n</table>\n`;
+            if (useShortcodes) html += `[/su_table]\n`;
+            html += `<p><strong>${uiText.starRatingAggregation}</strong></p>\n\n`;
+        }
 
-        // FAQs
-        if (generatedArticle.faqs.length > 0) {
+        // FAQs - skip for Review Snippet
+        if (!isReviewSnippet && generatedArticle.faqs.length > 0) {
             html += `<h2>${uiText.frequentlyAskedQuestions}</h2>\n`;
             if (useShortcodes) {
                 generatedArticle.faqs.forEach((faq, index) => {
@@ -1124,7 +1187,7 @@ Image Alt Text: ${seo.imageAltText}
         }
 
         navigator.clipboard.writeText(html);
-    }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, config.includeSections, config.useShortcodes, config.vertical]);
+    }, [generatedArticle, config.language, config.includeResponsibleGamblingDisclaimer, config.responsibleGamblingDisclaimerText, config.includeSections, config.useShortcodes, config.vertical, config.articleMode]);
 
     const handleDownloadHtml = useCallback(() => {
         if (!generatedArticle) return;
@@ -1506,7 +1569,7 @@ Image Alt Text: ${seo.imageAltText}
                         />
                     )}
 
-                    {/* Generated Article Output (Full Comparison) */}
+                    {/* Generated Article Output (Full Comparison or Review Snippet) */}
                     {generatedArticle && workflowPhase === 'completed' && !singlePlatformArticle && (
                         <div className="space-y-6">
                             {/* Action Buttons */}
@@ -1525,9 +1588,16 @@ Image Alt Text: ${seo.imageAltText}
                                     Download HTML
                                 </button>
                             </div>
+                            
+                            {/* Determine if this is Review Snippet mode */}
+                            {(() => {
+                                const isReviewSnippet = config.articleMode === ArticleMode.REVIEW_SNIPPET;
+                                const isCryptoSnippet = isReviewSnippet && (config.vertical === 'crypto' || config.vertical === 'wallet');
+                                return (
+                                    <>
 
-                            {/* SEO Metadata */}
-                            {generatedArticle.seoMetadata && (
+                            {/* SEO Metadata - hide for Review Snippet */}
+                            {!isReviewSnippet && generatedArticle.seoMetadata && (
                                 <SectionCard title="📊 SEO Metadata" icon="">
                                     <div className="grid grid-cols-1 gap-4">
                                         <div className="bg-gray-50 p-3 rounded-lg">
@@ -1556,15 +1626,18 @@ Image Alt Text: ${seo.imageAltText}
                                 </SectionCard>
                             )}
 
-                            {/* Introduction */}
+                            {/* Introduction - hide for Review Snippet */}
+                            {!isReviewSnippet && generatedArticle.intro && (
                             <SectionCard title={uiText.introduction} icon="📄">
                                 <div 
                                     className="prose prose-sm max-w-none"
                                     dangerouslySetInnerHTML={{ __html: generatedArticle.intro }}
                                 />
                             </SectionCard>
+                            )}
 
-                            {/* Platform Quick List */}
+                            {/* Platform Quick List - hide for Review Snippet */}
+                            {!isReviewSnippet && generatedArticle.platformQuickList.length > 0 && (
                             <SectionCard title={uiText.platformOverview} icon="📋">
                                 <ol className="space-y-2">
                                     {generatedArticle.platformQuickList.map((p, i) => (
@@ -1579,24 +1652,27 @@ Image Alt Text: ${seo.imageAltText}
                                     ))}
                                 </ol>
                             </SectionCard>
+                            )}
 
-                            {/* Comparison Table */}
-                            {config.includeSections.comparisonTable && generatedArticle.comparisonTable.length > 0 && (
+                            {/* Comparison Table - hide for Review Snippet */}
+                            {!isReviewSnippet && config.includeSections.comparisonTable && generatedArticle.comparisonTable.length > 0 && (
                                 <ComparisonTable rows={generatedArticle.comparisonTable} language={config.language} />
                             )}
 
-                            {/* Platform Reviews */}
+                            {/* Platform Reviews - no H2 heading for Review Snippet */}
                             <div className="space-y-4">
-                                <h2 className="text-xl font-semibold text-gray-900">{uiText.platformReviews}</h2>
+                                {!isReviewSnippet && <h2 className="text-xl font-semibold text-gray-900">{uiText.platformReviews}</h2>}
                                 {generatedArticle.platformReviews.map((review, index) => (
                                     <PlatformReviewCard
                                         key={index}
                                         review={review}
                                         language={config.language}
-                                        showInfosheet={config.includeSections.platformInfosheet}
-                                        showRatings={config.includeSections.platformRatings}
+                                        showInfosheet={isCryptoSnippet ? false : config.includeSections.platformInfosheet}
+                                        showRatings={isCryptoSnippet ? false : config.includeSections.platformRatings}
                                         showProsCons={config.includeSections.prosCons}
                                         showVerdict={config.includeSections.verdict}
+                                        hideOverviewHeading={isReviewSnippet}
+                                        hideCitations={isReviewSnippet}
                                     />
                                 ))}
                             </div>
@@ -1615,13 +1691,13 @@ Image Alt Text: ${seo.imageAltText}
                                 </div>
                             )}
 
-                            {/* FAQs */}
-                            {config.includeSections.faqs && generatedArticle.faqs.length > 0 && (
+                            {/* FAQs - hide for Review Snippet */}
+                            {!isReviewSnippet && config.includeSections.faqs && generatedArticle.faqs.length > 0 && (
                                 <FAQSection faqs={generatedArticle.faqs} language={config.language} />
                             )}
 
-                            {/* Citations */}
-                            {generatedArticle.allCitations.length > 0 && (
+                            {/* Citations - hide for Review Snippet */}
+                            {!isReviewSnippet && generatedArticle.allCitations.length > 0 && (
                                 <SectionCard title={uiText.allSources} icon="📚">
                                     <CitationList 
                                         citations={generatedArticle.allCitations} 
@@ -1629,6 +1705,9 @@ Image Alt Text: ${seo.imageAltText}
                                     />
                                 </SectionCard>
                             )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     )}
                 </main>
