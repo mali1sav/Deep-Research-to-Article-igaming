@@ -302,8 +302,8 @@ export const InputForm: React.FC<InputFormProps> = ({
                             <button
                                 type="button"
                                 onClick={onClearResearchCache}
-                                className="px-3 py-2 text-sm text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-md transition font-medium"
-                                title="Clear saved research data"
+                                className="px-3 py-2 text-sm text-orange-600 hover:text-orange-800 hover:bg-orange-50 hover:shadow-sm rounded-md transition font-medium"
+                                title="Clear only research cache - keeps form data, removes saved platform research"
                             >
                                 🔄 Clear Cache
                             </button>
@@ -311,7 +311,8 @@ export const InputForm: React.FC<InputFormProps> = ({
                         <button
                             type="button"
                             onClick={onClearAll}
-                            className="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition font-medium"
+                            className="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 hover:shadow-sm rounded-md transition font-medium"
+                            title="Clear everything - form data, research cache, and reset all settings"
                         >
                             🗑️ Clear All
                         </button>
